@@ -738,6 +738,13 @@ lde_send_change_klabel(struct fec_node *fn, struct fec_nh *fnh)
 	struct zapi_pw	 zpw;
 	struct l2vpn_pw	*pw;
 
+	/*
+	 * Ordered Control: don't program label into HW until a
+	 * labelmap msg has been received from upstream router
+	 */
+	if (fnh->flags & F_FEC_NH_DEFER)
+		return;
+
 	switch (fn->fec.type) {
 	case FEC_TYPE_IPV4:
 		memset(&kr, 0, sizeof(kr));
@@ -904,6 +911,21 @@ lde_send_labelmapping(struct lde_nbr *ln, struct fec_node *fn, int single)
 	struct lde_req		*lre;
 	struct map		 map;
 	struct l2vpn_pw		*pw;
+	struct fec_nh		*fnh;
+	bool                    allow = false;
+
+	/*
+	 * Ordered Control: do not send a lablemap msg until
+	 * a lablemap message is received from upstream router
+	 */
+	LIST_FOREACH(fnh, &fn->nexthops, entry)
+		if (!(fnh->flags & F_FEC_NH_DEFER)) {
+			allow = true;
+			break;
+		}
+
+	if (!allow)
+		return;
 
 	/*
 	 * We shouldn't send a new label mapping if we have a pending
@@ -1259,6 +1281,16 @@ lde_nbr_del(struct lde_nbr *ln)
 				if (!lde_address_find(ln, fnh->af,
 				    &fnh->nexthop))
 					continue;
+
+				/*
+				 * Ordered Control: must mark any non-connected
+				 * NH to wait until we receive a labelmap msg
+				 * before installing in kernel and sending to
+				 * peer, must do this as NHs are not removed
+				 * when lsps go down
+				 */
+				if (ldeconf->flags & F_LDPD_ORDERED_CONTROL)
+					fnh->flags |= F_FEC_NH_DEFER;
 				break;
 			case FEC_TYPE_PWID:
 				if (f->u.pwid.lsr_id.s_addr != ln->id.s_addr)
