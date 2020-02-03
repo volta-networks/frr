@@ -262,6 +262,7 @@ fec_add(struct fec *fec)
 
 	fn->fec = *fec;
 	fn->local_label = NO_LABEL;
+
 	RB_INIT(lde_map_head, &fn->upstream);
 	RB_INIT(lde_map_head, &fn->downstream);
 	LIST_INIT(&fn->nexthops);
@@ -333,9 +334,19 @@ lde_kernel_insert(struct fec *fec, int af, union ldpd_addr *nexthop,
 		fn->data = data;
 
 	fnh = fec_nh_find(fn, af, nexthop, ifindex, route_type, route_instance);
-	if (fnh == NULL)
+	if (fnh == NULL) {
 		fnh = fec_nh_add(fn, af, nexthop, ifindex, route_type,
-		    route_instance);
+				 route_instance);
+		/*
+		 * Ordered Control: if not a connected route and not a PW
+		 * then mark to wait until we receive labelmap msg before
+		 * installing in kernel and sending to peer
+		 */
+		if ((ldeconf->flags & F_LDPD_ORDERED_CONTROL) && !(connected)
+		    && (fec->type != FEC_TYPE_PWID))
+			fnh->flags |= F_FEC_NH_DEFER;
+	}
+
 	fnh->flags |= F_FEC_NH_NEW;
 	if (connected)
 		fnh->flags |= F_FEC_NH_CONNECTED;
@@ -445,6 +456,7 @@ lde_check_mapping(struct map *map, struct lde_nbr *ln)
 	struct lde_req		*lre;
 	struct lde_map		*me;
 	struct l2vpn_pw		*pw;
+	bool			send_map = false;
 
 	lde_map2fec(map, ln->id, &fec);
 
@@ -525,8 +537,18 @@ lde_check_mapping(struct map *map, struct lde_nbr *ln)
 			if (!lde_address_find(ln, fnh->af, &fnh->nexthop))
 				continue;
 
+			if (fnh->flags & F_FEC_NH_DEFER) {
+				/*
+				 * Ordered Control: labelmap msg received from
+				 * NH so clear flag and send labelmap msg to
+				 * peer
+				 */
+				send_map = true;
+				fnh->flags &= ~F_FEC_NH_DEFER;
+			}
 			fnh->remote_label = map->label;
 			lde_send_change_klabel(fn, fnh);
+
 			break;
 		case FEC_TYPE_PWID:
 			pw = (struct l2vpn_pw *) fn->data;
@@ -548,6 +570,7 @@ lde_check_mapping(struct map *map, struct lde_nbr *ln)
 			break;
 		}
 	}
+
 	/* LMp.13 & LMp.16: Record the mapping from this peer */
 	if (me == NULL)
 		me = lde_map_add(ln, fn, 0);
@@ -558,6 +581,15 @@ lde_check_mapping(struct map *map, struct lde_nbr *ln)
 	 * loop detection. LMp.28 - LMp.30 are unnecessary because we are
 	 * merging capable.
 	 */
+
+	/*
+	 * Ordered Control: just received a labelmap for this fec from NH so
+         * need to send labelmap to all peers
+	 */
+	if (send_map)
+		RB_FOREACH(ln, nbr_tree, &lde_nbrs)
+			lde_send_labelmapping(ln, fn, 1);
+
 }
 
 void

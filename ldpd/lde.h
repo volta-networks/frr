@@ -114,6 +114,7 @@ struct fec_nh {
 };
 #define F_FEC_NH_NEW		0x01
 #define F_FEC_NH_CONNECTED	0x02
+#define F_FEC_NH_DEFER		0x04		/* running ordered control */
 
 struct fec_node {
 	struct fec		 fec;
