@@ -20,6 +20,7 @@
 #include <zebra.h>
 
 #include "ldpd.h"
+#include "ldpe.h"
 #include "lde.h"
 #include "log.h"
 
@@ -326,6 +327,7 @@ lde_kernel_insert(struct fec *fec, int af, union ldpd_addr *nexthop,
 {
 	struct fec_node		*fn;
 	struct fec_nh		*fnh;
+	struct iface		*iface;
 
 	fn = (struct fec_node *)fec_find(&ft, fec);
 	if (fn == NULL)
@@ -336,19 +338,21 @@ lde_kernel_insert(struct fec *fec, int af, union ldpd_addr *nexthop,
 	fnh = fec_nh_find(fn, af, nexthop, ifindex, route_type, route_instance);
 	if (fnh == NULL) {
 		fnh = fec_nh_add(fn, af, nexthop, ifindex, route_type,
-				 route_instance);
+		    route_instance);
 		/*
-		 * Ordered Control: if not a connected route and not a PW
+		 * Ordered Control: if not a connected route and not a route
+		 * learned over an interface not running LDP and not a PW
 		 * then mark to wait until we receive labelmap msg before
 		 * installing in kernel and sending to peer
 		 */
-		if ((ldeconf->flags & F_LDPD_ORDERED_CONTROL) && !(connected)
-		    && (fec->type != FEC_TYPE_PWID))
+		iface = if_lookup(ldeconf, ifindex);
+		if ((ldeconf->flags & F_LDPD_ORDERED_CONTROL) &&
+		    (!connected) && (iface != NULL) && (fec->type != FEC_TYPE_PWID))
 			fnh->flags |= F_FEC_NH_DEFER;
 	}
 
 	fnh->flags |= F_FEC_NH_NEW;
-	if (connected)
+	if ((connected) || (iface == NULL))
 		fnh->flags |= F_FEC_NH_CONNECTED;
 }
 
@@ -385,6 +389,8 @@ lde_kernel_update(struct fec *fec)
 	struct fec_nh		*fnh, *safe;
 	struct lde_nbr		*ln;
 	struct lde_map		*me;
+	bool			 nh_del = false;
+	bool			 valid_lsp = true;
 
 	fn = (struct fec_node *)fec_find(&ft, fec);
 	if (fn == NULL)
@@ -396,6 +402,7 @@ lde_kernel_update(struct fec *fec)
 		else {
 			lde_send_delete_klabel(fn, fnh);
 			fec_nh_del(fnh);
+			nh_del = true;
 		}
 	}
 
@@ -414,11 +421,33 @@ lde_kernel_update(struct fec *fec)
 		 */
 		lde_gc_start_timer();
 	} else {
-		fn->local_label = lde_update_label(fn);
-		if (fn->local_label != NO_LABEL)
-			/* FEC.1: perform lsr label distribution procedure */
-			RB_FOREACH(ln, nbr_tree, &lde_nbrs)
-				lde_send_labelmapping(ln, fn, 1);
+		/* Ordered Control: if no valid NH exists then send label
+		 * withdraw to each peer
+		 */
+		if ((ldeconf->flags & F_LDPD_ORDERED_CONTROL) && (nh_del)) {
+			valid_lsp = false;
+			LIST_FOREACH(fnh, &fn->nexthops, entry)
+				if (!(fnh->flags & F_FEC_NH_DEFER)) {
+					valid_lsp = true;
+					break;
+				}
+		}
+		if (!valid_lsp) {
+			/* NH.10: no valid NH for FEC */
+			RB_FOREACH(ln, nbr_tree, &lde_nbrs) {
+				/* NH.16-18: send label withdraw to each peer */
+				me = (struct lde_map *)fec_find(&ln->sent_map, &fn->fec);
+				if (me)
+					lde_send_labelwithdraw(ln, fn, NULL, NULL);
+			}
+		}
+		else {
+			fn->local_label = lde_update_label(fn);
+			if (fn->local_label != NO_LABEL)
+				/* FEC.1: perform lsr label distribution procedure */
+				RB_FOREACH(ln, nbr_tree, &lde_nbrs)
+					lde_send_labelmapping(ln, fn, 1);
+		}
 	}
 
 	LIST_FOREACH(fnh, &fn->nexthops, entry) {
@@ -585,10 +614,12 @@ lde_check_mapping(struct map *map, struct lde_nbr *ln)
 	/*
 	 * Ordered Control: just received a labelmap for this fec from NH so
          * need to send labelmap to all peers
+	 * LMp.20 - LMp21 Execute procedure to send Label Mapping
 	 */
 	if (send_map)
-		RB_FOREACH(ln, nbr_tree, &lde_nbrs)
-			lde_send_labelmapping(ln, fn, 1);
+		if (fn->local_label != NO_LABEL)
+			RB_FOREACH(ln, nbr_tree, &lde_nbrs)
+				lde_send_labelmapping(ln, fn, 1);
 
 }
 
@@ -789,6 +820,7 @@ lde_check_withdraw(struct map *map, struct lde_nbr *ln)
 	struct fec_nh		*fnh;
 	struct lde_map		*me;
 	struct l2vpn_pw		*pw;
+	struct lde_nbr		*lnbr;
 
 	/* wildcard label withdraw */
 	if (map->type == MAP_TYPE_WILDCARD ||
@@ -835,6 +867,22 @@ lde_check_withdraw(struct map *map, struct lde_nbr *ln)
 	if (me && (map->label == NO_LABEL || map->label == me->map.label))
 		/* LWd.4: remove record of previously received lbl mapping */
 		lde_map_del(ln, me, 0);
+
+	/* Ordered Control: additional withdraw steps */
+	if (ldeconf->flags & F_LDPD_ORDERED_CONTROL) {
+		/* LWd.8: for each neighbor other that src of withdraw msg */
+		RB_FOREACH(lnbr, nbr_tree, &lde_nbrs) {
+			if (ln->peerid == lnbr->peerid)
+				continue;
+
+			/* LWd.9: check if previously sent a label mapping */
+			me = (struct lde_map *)fec_find(&lnbr->sent_map, &fn->fec);
+			/* LWd.10: does label sent to peer  map to withdraw label */
+			if ((me) && (map->label == me->map.label))
+				/* LWd.11: send label withdraw */
+				lde_send_labelwithdraw(lnbr, fn, NULL, NULL);
+		}
+	}
 }
 
 void
