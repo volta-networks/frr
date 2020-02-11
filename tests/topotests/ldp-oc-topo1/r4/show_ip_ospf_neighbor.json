@@ -1,0 +1,27 @@
+
+{
+  "neighbors":{
+    "2.2.2.2":[
+      {
+        "priority":1,
+        "state":"Full\/DROther",
+        "address":"10.0.2.2",
+        "ifaceName":"r4-eth0:10.0.2.4",
+        "retransmitCounter":0,
+        "requestCounter":0,
+        "dbSummaryCounter":0
+      }
+    ],
+    "3.3.3.3":[
+      {
+        "priority":1,
+        "state":"Full\/Backup",
+        "address":"10.0.2.3",
+        "ifaceName":"r4-eth0:10.0.2.4",
+        "retransmitCounter":0,
+        "requestCounter":0,
+        "dbSummaryCounter":0
+      }
+    ]
+  }
+}
