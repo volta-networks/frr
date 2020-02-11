@@ -668,7 +668,8 @@ lde_update_label(struct fec_node *fn)
 	int		 connected = 0;
 
 	LIST_FOREACH(fnh, &fn->nexthops, entry) {
-		if (fnh->flags & F_FEC_NH_CONNECTED) {
+		if ((fnh->flags & F_FEC_NH_CONNECTED) ||
+		    (fnh->flags & F_FEC_NH_NO_LDP)) {
 			connected = 1;
 			break;
 		}
