@@ -50,7 +50,6 @@
       "addressFamily":"ipv4",
       "prefix":"123.0.1.0\/24",
       "neighborId":"2.2.2.2",
-      "localLabel":"imp-null",
       "inUse":0
     }
   ]
