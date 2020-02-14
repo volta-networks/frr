@@ -335,6 +335,7 @@ lde_kernel_insert(struct fec *fec, int af, union ldpd_addr *nexthop,
 	if (data)
 		fn->data = data;
 
+	iface = if_lookup(ldeconf, ifindex);
 	fnh = fec_nh_find(fn, af, nexthop, ifindex, route_type, route_instance);
 	if (fnh == NULL) {
 		fnh = fec_nh_add(fn, af, nexthop, ifindex, route_type,
@@ -345,15 +346,19 @@ lde_kernel_insert(struct fec *fec, int af, union ldpd_addr *nexthop,
 		 * then mark to wait until we receive labelmap msg before
 		 * installing in kernel and sending to peer
 		 */
-		iface = if_lookup(ldeconf, ifindex);
 		if ((ldeconf->flags & F_LDPD_ORDERED_CONTROL) &&
 		    (!connected) && (iface != NULL) && (fec->type != FEC_TYPE_PWID))
 			fnh->flags |= F_FEC_NH_DEFER;
 	}
 
 	fnh->flags |= F_FEC_NH_NEW;
-	if ((connected) || (iface == NULL))
+	if (connected)
 		fnh->flags |= F_FEC_NH_CONNECTED;
+
+	/* if LDP not configured on interface treat route as connected */
+	if (iface == NULL)
+		fnh->flags |= F_FEC_NH_NO_LDP;
+
 }
 
 void
