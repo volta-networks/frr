@@ -354,11 +354,12 @@ lde_kernel_insert(struct fec *fec, int af, union ldpd_addr *nexthop,
 	fnh->flags |= F_FEC_NH_NEW;
 	if (connected)
 		fnh->flags |= F_FEC_NH_CONNECTED;
-
-	/* if LDP not configured on interface treat route as connected */
-	if (iface == NULL)
+	else if (iface == NULL)
+		/*
+		 *  LDP not configured on interface so treat route
+		 *  as connected
+		 */
 		fnh->flags |= F_FEC_NH_NO_LDP;
-
 }
 
 void
@@ -396,6 +397,7 @@ lde_kernel_update(struct fec *fec)
 	struct lde_map		*me;
 	bool			 nh_del = false;
 	bool			 valid_lsp = true;
+	struct iface		*iface;
 
 	fn = (struct fec_node *)fec_find(&ft, fec);
 	if (fn == NULL)
@@ -409,6 +411,15 @@ lde_kernel_update(struct fec *fec)
 			fec_nh_del(fnh);
 			nh_del = true;
 		}
+		/*
+		 * if LDP configured on interface clear flag else
+		 * treat fec as a connected route
+		 */
+		iface = if_lookup(ldeconf,fnh->ifindex);
+		if (iface)
+			fnh->flags &=~F_FEC_NH_NO_LDP;
+		else
+			fnh->flags |= F_FEC_NH_NO_LDP;
 	}
 
 	if (LIST_EMPTY(&fn->nexthops)) {
@@ -581,6 +592,13 @@ lde_check_mapping(struct map *map, struct lde_nbr *ln)
 				fnh->flags &= ~F_FEC_NH_DEFER;
 			}
 			fnh->remote_label = map->label;
+
+			/*
+			 * received a map from a NH so clear flag that
+			 * indicates LDP is not running in this interface
+			 */
+			fnh->flags &= ~F_FEC_NH_NO_LDP;
+
 			lde_send_change_klabel(fn, fnh);
 
 			break;
