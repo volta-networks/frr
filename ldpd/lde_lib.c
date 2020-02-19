@@ -395,8 +395,6 @@ lde_kernel_update(struct fec *fec)
 	struct fec_nh		*fnh, *safe;
 	struct lde_nbr		*ln;
 	struct lde_map		*me;
-	bool			 nh_del = false;
-	bool			 valid_lsp = true;
 	struct iface		*iface;
 
 	fn = (struct fec_node *)fec_find(&ft, fec);
@@ -409,7 +407,6 @@ lde_kernel_update(struct fec *fec)
 		else {
 			lde_send_delete_klabel(fn, fnh);
 			fec_nh_del(fnh);
-			nh_del = true;
 		}
 		/*
 		 * if LDP configured on interface clear flag else
@@ -438,11 +435,11 @@ lde_kernel_update(struct fec *fec)
 		lde_gc_start_timer();
 	}
 	else {
-			fn->local_label = lde_update_label(fn);
-			if (fn->local_label != NO_LABEL)
-					/* FEC.1: perform lsr label distribution procedure */
-					RB_FOREACH(ln, nbr_tree, &lde_nbrs)
-							lde_send_labelmapping(ln, fn, 1);
+		fn->local_label = lde_update_label(fn);
+		if (fn->local_label != NO_LABEL)
+			/* FEC.1: perform lsr label distribution procedure */
+			RB_FOREACH(ln, nbr_tree, &lde_nbrs)
+				lde_send_labelmapping(ln, fn, 1);
 	}
 
 	LIST_FOREACH(fnh, &fn->nexthops, entry) {

@@ -923,12 +923,12 @@ lde_send_labelmapping(struct lde_nbr *ln, struct fec_node *fn, int single)
 	if (ldeconf->flags & F_LDPD_ORDERED_CONTROL) {
 		LIST_FOREACH(fnh, &fn->nexthops, entry)
 			if (!(fnh->flags & F_FEC_NH_DEFER)) {
-				if (lde_address_find(ln, fnh->af, &fnh->nexthop)) {
-					allow = false;
+				if (lde_address_find(ln, fnh->af, &fnh->nexthop))
+					return;
+				else {
+					allow = true;
 					break;
 				}
-				allow = true;
-				break;
 			}
 		if (!allow)
 			return;
