@@ -23,7 +23,7 @@
 #
 
 """
-test_ldp_topo1.py: Simple FRR/Quagga LDP Test
+test_ldp_oc_topo1.py: Simple FRR/Quagga LDP Test
 
              +---------+
              |    r1   |
@@ -58,8 +58,6 @@ r3-eth1 .3 |  | .3  r3-eth0      | .4 r4-eth0
       |  3.3.3.3  |         | 4.4.4.4 |
       +-----------+         +---------+
 """
-
-import pdb
 
 import os
 import sys
@@ -109,6 +107,10 @@ class TemplateTopo(Topo):
         switch.add_link(tgen.gears['r2'])
         switch.add_link(tgen.gears['r3'])
 
+def mpls_ldp_remove_acl(node):
+    cmd = 'vtysh -c \"configure terminal\" -c \"mpls ldp\" -c \"address-family ipv4\" -c \"no label local allocate host-routes\"'
+    node.run(cmd)
+
 def setup_module(mod):
     "Sets up the pytest environment"
     tgen = Topogen(TemplateTopo, mod.__name__)
@@ -156,6 +158,7 @@ def router_compare_json_output(rname, command, reference):
     test_func = partial(topotest.router_json_cmp,
         tgen.gears[rname], command, expected)
     _, diff = topotest.run_and_expect(test_func, None, count=160, wait=0.5)
+
     assertmsg = '"{}" JSON output mismatches the expected result'.format(rname)
     assert diff is None, assertmsg
 
@@ -174,8 +177,6 @@ def test_ospf_convergence():
 def test_rib():
     logger.info("Test: verify RIB")
     tgen = get_topogen()
-
-    #pdb.set_trace()
 
     # Skip if previous fatal error condition is raised
     if tgen.routers_have_failure():
@@ -216,6 +217,95 @@ def test_ldp_bindings():
 
     for rname in ['r1', 'r2', 'r3', 'r4']:
         router_compare_json_output(rname, "show mpls ldp binding json", "show_ldp_binding.ref")
+
+def test_remote_acl_from_r1():
+    logger.info("Test: Remove ACL from R1")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # Shutdown interface
+    dut = "r1"
+    dut_router = tgen.gears[dut]
+    intf = "r1-eth0"
+
+    logger.info("Shutdown interface %s on router %s",
+        intf, dut)
+
+    topotest.interface_set_status(dut_router, intf, ifaceaction=False)
+
+    # Remove ACL from r1
+    mpls_ldp_remove_acl(dut_router)
+
+    # Verify R1 has no LDP neighbors
+    for rname in ['r1']:
+        router_compare_json_output(rname, "show mpls ldp neighbor json", "show_ldp_neighbor_no_neighbors.ref")
+
+    # No shutdown interface
+    logger.info("No shutdown interface %s on router %s",
+        intf, dut)
+    topotest.interface_set_status(dut_router, intf, ifaceaction=True)
+
+    for rname in ['r1', 'r2', 'r3', 'r4']:
+        router_compare_json_output(rname, "show mpls ldp neighbor json", "show_ldp_neighbor.ref")
+
+def test_ospf_convergence_no_r1_acl():
+    logger.info("Test: check OSPF adjacencies: no R1 ACL")
+
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for rname in ['r1', 'r2', 'r3', 'r4']:
+        router_compare_json_output(rname, "show ip ospf neighbor json", "show_ip_ospf_neighbor.json")
+
+def test_rib_no_r1_acl():
+    logger.info("Test: verify RIB: no R1 ACL")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for rname in ['r1', 'r2', 'r3', 'r4']:
+        router_compare_json_output(rname, "show ip route json", "show_ip_route.ref")
+
+def test_ldp_adjacencies_no_r1_acl():
+    logger.info("Test: verify LDP adjacencies: no R1 ACL")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for rname in ['r1', 'r2', 'r3', 'r4']:
+        router_compare_json_output(rname, "show mpls ldp discovery json", "show_ldp_discovery.ref")
+
+def test_ldp_neighbors_no_r1_acl():
+    logger.info("Test: verify LDP neighbors: no R1 ACL")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for rname in ['r1', 'r2', 'r3', 'r4']:
+        router_compare_json_output(rname, "show mpls ldp neighbor json", "show_ldp_neighbor.ref")
+
+def test_ldp_bindings_no_r1_acl():
+    logger.info("Test: verify LDP bindings: no R1 ACL")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for rname in ['r1', 'r2', 'r3', 'r4']:
+        router_compare_json_output(rname, "show mpls ldp binding json", "show_ldp_binding_2.ref")
 
 # Memory leak test template
 def test_memory_leak():
