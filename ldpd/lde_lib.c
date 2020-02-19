@@ -436,34 +436,13 @@ lde_kernel_update(struct fec *fec)
 		 * is stabilized.
 		 */
 		lde_gc_start_timer();
-	} else {
-		/* Ordered Control: if no valid NH exists then send label
-		 * withdraw to each peer
-		 */
-		if ((ldeconf->flags & F_LDPD_ORDERED_CONTROL) && (nh_del)) {
-			valid_lsp = false;
-			LIST_FOREACH(fnh, &fn->nexthops, entry)
-				if (!(fnh->flags & F_FEC_NH_DEFER)) {
-					valid_lsp = true;
-					break;
-				}
-		}
-		if (!valid_lsp) {
-			/* NH.10: no valid NH for FEC */
-			RB_FOREACH(ln, nbr_tree, &lde_nbrs) {
-				/* NH.16-18: send label withdraw to each peer */
-				me = (struct lde_map *)fec_find(&ln->sent_map, &fn->fec);
-				if (me)
-					lde_send_labelwithdraw(ln, fn, NULL, NULL);
-			}
-		}
-		else {
+	}
+	else {
 			fn->local_label = lde_update_label(fn);
 			if (fn->local_label != NO_LABEL)
-				/* FEC.1: perform lsr label distribution procedure */
-				RB_FOREACH(ln, nbr_tree, &lde_nbrs)
-					lde_send_labelmapping(ln, fn, 1);
-		}
+					/* FEC.1: perform lsr label distribution procedure */
+					RB_FOREACH(ln, nbr_tree, &lde_nbrs)
+							lde_send_labelmapping(ln, fn, 1);
 	}
 
 	LIST_FOREACH(fnh, &fn->nexthops, entry) {

@@ -916,17 +916,23 @@ lde_send_labelmapping(struct lde_nbr *ln, struct fec_node *fn, int single)
 	bool                    allow = false;
 
 	/*
-	 * Ordered Control: do not send a lablemap msg until
-	 * a lablemap message is received from upstream router
+	 * Ordered Control: do not send a labelmap msg until
+	 * a lablemap message is received from downstream router
+	 * and don't send labelmap back to downstream router
 	 */
-	LIST_FOREACH(fnh, &fn->nexthops, entry)
-		if (!(fnh->flags & F_FEC_NH_DEFER)) {
-			allow = true;
-			break;
-		}
-
-	if (!allow)
-		return;
+	if (ldeconf->flags & F_LDPD_ORDERED_CONTROL) {
+		LIST_FOREACH(fnh, &fn->nexthops, entry)
+			if (!(fnh->flags & F_FEC_NH_DEFER)) {
+				if (lde_address_find(ln, fnh->af, &fnh->nexthop)) {
+					allow = false;
+					break;
+				}
+				allow = true;
+				break;
+			}
+		if (!allow)
+			return;
+	}
 
 	/*
 	 * We shouldn't send a new label mapping if we have a pending
