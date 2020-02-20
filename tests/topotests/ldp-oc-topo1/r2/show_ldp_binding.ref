@@ -9,28 +9,10 @@
     },
     {
       "addressFamily":"ipv4",
-      "prefix":"1.1.1.1/32",
-      "neighborId":"3.3.3.3",
-      "inUse":0
-    },
-    {
-      "addressFamily":"ipv4",
       "prefix":"2.2.2.2/32",
-      "neighborId":"1.1.1.1",
+      "neighborId":"0.0.0.0",
       "localLabel":"imp-null",
-      "inUse":0
-    },
-    {
-      "addressFamily":"ipv4",
-      "prefix":"2.2.2.2/32",
-      "neighborId":"3.3.3.3",
-      "localLabel":"imp-null",
-      "inUse":0
-    },
-    {
-      "addressFamily":"ipv4",
-      "prefix":"3.3.3.3/32",
-      "neighborId":"1.1.1.1",
+      "remoteLabel":"-",
       "inUse":0
     },
     {
@@ -50,23 +32,9 @@
     {
       "addressFamily":"ipv4",
       "prefix":"10.0.1.0/24",
-      "neighborId":"1.1.1.1",
+      "neighborId":"0.0.0.0",
       "localLabel":"imp-null",
-      "remoteLabel":"imp-null",
-      "inUse":0
-    },
-    {
-      "addressFamily":"ipv4",
-      "prefix":"10.0.1.0/24",
-      "neighborId":"3.3.3.3",
-      "localLabel":"imp-null",
-      "inUse":0
-    },
-    {
-      "addressFamily":"ipv4",
-      "prefix":"10.0.2.0/24",
-      "neighborId":"1.1.1.1",
-      "localLabel":"imp-null",
+      "remoteLabel":"-",
       "inUse":0
     },
     {
@@ -80,12 +48,6 @@
     {
       "addressFamily":"ipv4",
       "prefix":"10.0.3.0/24",
-      "neighborId":"1.1.1.1",
-      "inUse":0
-    },
-    {
-      "addressFamily":"ipv4",
-      "prefix":"10.0.3.0/24",
       "neighborId":"3.3.3.3",
       "remoteLabel":"imp-null",
       "inUse":1
@@ -93,14 +55,8 @@
     {
       "addressFamily":"ipv4",
       "prefix":"123.0.1.0/24",
-      "neighborId":"1.1.1.1",
-      "remoteLabel":"imp-null",
-      "inUse":1
-    },
-    {
-      "addressFamily":"ipv4",
-      "prefix":"123.0.1.0/24",
-      "neighborId":"3.3.3.3",
+      "neighborId":"0.0.0.0",
+      "remoteLabel":"-",
       "inUse":0
     }
   ]
