@@ -1281,6 +1281,14 @@ merge_config(struct ldpd_conf *conf, struct ldpd_conf *xconf)
 static void
 merge_global(struct ldpd_conf *conf, struct ldpd_conf *xconf)
 {
+/* Removing globlal LDP config requires resetting LDP IGP Sync FSM */
+	if ((conf->flags & F_LDPD_ENABLED) !=
+	    (!(xconf->flags & F_LDPD_ENABLED)))
+	{
+		if (ldpd_process == PROC_LDP_ENGINE)
+			ldp_sync_fsm_reset_all();
+	}
+
 	/* change of router-id requires resetting all neighborships */
 	if (conf->rtr_id.s_addr != xconf->rtr_id.s_addr) {
 		if (ldpd_process == PROC_LDP_ENGINE) {

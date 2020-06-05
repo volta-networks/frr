@@ -231,6 +231,12 @@ uint16_t	 if_get_hello_holdtime(struct iface_af *);
 uint16_t	 if_get_hello_interval(struct iface_af *);
 struct ctl_iface *if_to_ctl(struct iface_af *);
 in_addr_t	 if_get_ipv4_addr(struct iface *);
+int		 ldp_sync_fsm_helper_adj(struct adj *, enum ldp_sync_event);
+int		 ldp_sync_fsm_helper_nbr(struct nbr *, enum ldp_sync_event);
+int		 ldp_sync_fsm(struct iface *, enum ldp_sync_event);
+void		 ldp_sync_fsm_reset_all(void);
+const char      *ldp_sync_state_name(int);
+const char      *ldp_sync_event_name(int);
 
 /* adjacency.c */
 struct adj	*adj_new(struct in_addr, struct hello_source *,

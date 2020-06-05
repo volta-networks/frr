@@ -227,6 +227,41 @@ enum nbr_action {
 	NBR_ACT_CLOSE_SESSION
 };
 
+/* LDP IGP Sync states */
+#define	LDP_SYNC_STA_NOT_CONFIG		0x0001
+#define	LDP_SYNC_STA_NOT_REQ 		0x0002
+#define	LDP_SYNC_STA_REQ_NOT_ACH 	0x0004
+#define	LDP_SYNC_STA_REQ_ACH		0x0008
+
+/* LDP IGP Sync events */
+enum ldp_sync_event {
+	LDP_SYNC_EVT_NOTHING,
+	LDP_SYNC_EVT_LDP_SYNC_START,
+	LDP_SYNC_EVT_LDP_SYNC_COMPLETE,
+	LDP_SYNC_EVT_CONFIG_SYNC_ON,
+	LDP_SYNC_EVT_CONFIG_SYNC_ON_LDP_IN_SYNC,
+	LDP_SYNC_EVT_CONFIG_SYNC_OFF,
+	LDP_SYNC_EVT_CONFIG_LDP_OFF,
+	LDP_SYNC_EVT_ADJ_DEL,
+	LDP_SYNC_EVT_ADJ_NEW,
+	LDP_SYNC_EVT_SESSION_CLOSE,
+	LDP_SYNC_EVT_CONFIG_LDP_ON,
+	LDP_SYNC_EVT_IFACE_SYNC_COMPLETE,
+	LDP_SYNC_EVT_NONE
+};
+
+/* LDP IGP Sync actions */
+enum ldp_sync_action {
+	LDP_SYNC_ACT_NOTHING,
+	LDP_SYNC_ACT_IFACE_START_SYNC,
+	LDP_SYNC_ACT_LDP_START_SYNC,
+	LDP_SYNC_ACT_LDP_COMPLETE_SYNC,
+	LDP_SYNC_ACT_CONFIG_SYNC_ON,
+	LDP_SYNC_ACT_CONFIG_SYNC_ON_LDP_IN_SYNC,
+	LDP_SYNC_ACT_CONFIG_SYNC_OFF,
+	LDP_SYNC_ACT_CONFIG_LDP_OFF
+};
+
 /* forward declarations */
 RB_HEAD(global_adj_head, adj);
 RB_HEAD(nbr_adj_head, adj);
@@ -310,6 +345,12 @@ struct iface_af {
 	uint16_t		 hello_interval;
 };
 
+struct iface_ldp_sync {
+	int			 state;
+	bool			 ldp_in_sync;
+	struct thread           *wait_for_ldp_sync_timer;
+};
+
 struct iface {
 	RB_ENTRY(iface)		 entry;
 	char			 name[IF_NAMESIZE];
@@ -320,6 +361,7 @@ struct iface {
 	int			 operative;
 	struct iface_af		 ipv4;
 	struct iface_af		 ipv6;
+	struct iface_ldp_sync	 ldp_sync;
 	QOBJ_FIELDS
 };
 RB_HEAD(iface_head, iface);
