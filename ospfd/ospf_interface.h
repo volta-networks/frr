@@ -104,6 +104,10 @@ struct ospf_if_params {
 
 	/* BFD configuration */
 	struct bfd_info *bfd_info;
+
+	/* MPLS LDP-IGP Sync configuration */
+	struct ldp_sync_info *ldp_sync_info;
+
 };
 
 enum { MEMBER_ALLROUTERS = 0,

@@ -39,6 +39,7 @@
 #include "libfrr.h"
 #include "defaults.h"
 #include "lib_errors.h"
+#include "ldp_sync.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_network.h"
@@ -57,6 +58,7 @@
 #include "ospfd/ospf_abr.h"
 #include "ospfd/ospf_flood.h"
 #include "ospfd/ospf_ase.h"
+#include "ospfd/ospf_ldp_sync.h"
 
 
 DEFINE_QOBJ_TYPE(ospf)
@@ -931,6 +933,9 @@ static void add_ospf_interface(struct connected *co, struct ospf_area *area)
 	ospf_nbr_self_reset(oi, oi->ospf->router_id);
 
 	ospf_area_add_if(oi->area, oi);
+
+	/* if LDP-IGP Sync is configured globally inherit config */
+	ospf_ldp_sync_if_init(oi);
 
 	/*
 	 * if router_id is not configured, dont bring up
