@@ -59,6 +59,39 @@ void ospf_ldp_sync_info_free(struct ospf_if_params *oip)
 }
 
 /*
+ * LDP-SYNC msg between IGP and LDP
+ */
+int ldp_igp_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
+{
+	uint32_t type;
+	struct ldp_igp_sync_if_state state;
+	struct stream *s;
+	struct interface *ifp;
+
+	s = zclient->ibuf;
+	STREAM_GETL(s, type);
+
+	switch (type) {
+	case LDP_IGP_SYNC_IF_STATE_UPDATE:
+                STREAM_GET(&state, s, sizeof(state));
+		ifp = if_lookup_by_index(state.ifindex, VRF_DEFAULT);
+		if (ifp) {
+			if (state.sync_start)
+				ospf_ldp_sync_if_up(ifp);
+			else
+				ospf_ldp_sync_if_complete(ifp);
+			break;
+		}
+	default:
+		break;
+	}
+
+stream_failure:
+
+        return 0;
+}
+
+/*
  * LDP-SYNC general interface routines
  */
 
@@ -100,9 +133,7 @@ void ospf_ldp_sync_if_up(struct interface *ifp)
 	    LDP_IGP_SYNC_STATE_REQUIRED_NOT_UP &&
 	    params->ldp_sync_info->t_holddown == NULL) {
 		ospf_ldp_sync_holddown_timer_add(ifp);
-	} else
-		zlog_debug("LYNNE: %s: not run on this interface if %s",
-			   __FUNCTION__,ifp->name);
+	}
 }
 
 void ospf_ldp_sync_if_down(struct interface *ifp)
@@ -134,7 +165,8 @@ void ospf_ldp_sync_if_remove(struct interface *ifp)
 		params->ldp_sync_info->state = LDP_IGP_SYNC_STATE_NOT_REQUIRED;
 		ospf_if_recalculate_output_cost(ifp);
 	}
-	//send message to LDP???
+
+	ldp_sync_igp_send_msg(ifp, false);
 	ospf_ldp_sync_info_free(params);
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
 		zlog_debug("LDP-SYNC: Removed from if %s",ifp->name);
@@ -153,7 +185,7 @@ void ospf_ldp_sync_if_config(struct interface *ifp)
 		if (params->type == OSPF_IFTYPE_POINTOPOINT) {
 			params->ldp_sync_info->state =
 				LDP_IGP_SYNC_STATE_REQUIRED_NOT_UP;
-			//send message to LDP???
+			ldp_sync_igp_send_msg(ifp, true);
 		} else {
 			params->ldp_sync_info->state =
 				LDP_IGP_SYNC_STATE_NOT_REQUIRED;
@@ -183,7 +215,6 @@ uint8_t ospf_if_get_ldp_sync_enable(struct ospf_interface *oi)
 			sync = LDP_IGP_SYNC_ENABLED;
 		else
 			sync = LDP_IGP_SYNC_DEFAULT;
-zlog_debug("LYNNE: %s: flags 0x%x", __FUNCTION__,oi->ospf->ldp_sync_cmd.flags);
 	}
 	return sync;
 }
@@ -243,6 +274,29 @@ void ospf_ldp_sync_holddown_timer_add(struct interface *ifp)
 	thread_add_timer(master, ospf_ldp_sync_holddown_timer,
 			 ifp, params->ldp_sync_info->holddown,
 			 &params->ldp_sync_info->t_holddown);
+}
+
+void ospf_ldp_sync_if_complete(struct interface *ifp)
+{
+	struct ospf_if_params *params;
+
+	params = IF_DEF_PARAMS(ifp);
+
+	/* received sync-complete from LDP
+         * set state to up
+	 * stop timer
+	 * restore interface cost to original value
+         */
+	if (params->ldp_sync_info) {
+		params->ldp_sync_info->state = LDP_IGP_SYNC_STATE_REQUIRED_UP;
+		THREAD_TIMER_OFF(params->ldp_sync_info->t_holddown);
+		params->ldp_sync_info->t_holddown = NULL;
+		ospf_if_recalculate_output_cost(ifp);
+
+		if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
+			zlog_debug("LDP-SYNC: rcvd sync-complete if %s state: %s",
+				ifp->name, "Sync achieved");
+	}
 }
 
 /*
@@ -545,6 +599,7 @@ DEFUN (ospf_mpls_ldp_sync,
 	zlog_debug("LYNNE: %s: ", __FUNCTION__);
 	if (!CHECK_FLAG(ospf->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE)) {
 		SET_FLAG(ospf->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE);
+
 		/* turn on LDP-IGP Sync on all ptop OSPF interfaces */
 		FOR_ALL_INTERFACES (vrf, ifp)
 			ospf_if_set_ldp_sync_enable(ospf, ifp);
