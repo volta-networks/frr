@@ -680,8 +680,14 @@ send_ldp_igp_sync_start_msg(struct iface *iface)
 	log_debug("DBG_LDP_SYNC: %s: %d: interface %s (ldp in sync %d)",
 		    __func__, __LINE__, iface->name, iface->ldp_sync.ldp_in_sync);
 
-	log_debug("DBG_LDP_SYNC_TODO: %s: %d: interface %s: TODO! send sync-start to IGP",
-		    __func__, __LINE__, iface->name);
+	struct ldp_igp_sync_if_state state;
+
+	strlcpy(state.name, iface->name, sizeof(state.name));
+	state.ifindex = iface->ifindex;
+	state.sync_start = true;
+
+	return ldpe_imsg_compose_parent(IMSG_LDP_IGP_SYNC_IF_STATE_UPDATE, getpid(),
+		&state, sizeof(state));
 
 	return 0;
 }
@@ -692,8 +698,14 @@ send_ldp_igp_sync_complete_msg(struct iface *iface)
 	log_debug("DBG_LDP_SYNC: %s: %d: interface %s (ldp in sync %d)",
 		    __func__, __LINE__, iface->name, iface->ldp_sync.ldp_in_sync);
 
-	log_debug("DBG_LDP_SYNC_TODO: %s: %d: interface %s: TODO! send sync-complete to IGP",
-		    __func__, __LINE__, iface->name);
+	struct ldp_igp_sync_if_state state;
+
+	strlcpy(state.name, iface->name, sizeof(state.name));
+	state.ifindex = iface->ifindex;
+	state.sync_start = false;
+
+	return ldpe_imsg_compose_parent(IMSG_LDP_IGP_SYNC_IF_STATE_UPDATE, getpid(),
+		&state, sizeof(state));
 
 	return 0;
 }
@@ -848,6 +860,28 @@ ldp_sync_fsm_helper_nbr(struct nbr *nbr, enum ldp_sync_event event)
 		// Process these events when last neighbor leaves interface.
 		return 0;
 	}
+
+	return ldp_sync_fsm(iface, event);
+}
+
+int
+ldp_sync_fsm_helper_ifconfig(struct ldp_igp_sync_if_config *config)
+{
+	log_debug("DBG_LDP_SYNC: %s: %d: if %s configured %d",
+		    __func__, __LINE__, config->name, config->sync_configured);
+
+	struct iface *iface = if_lookup_name(leconf, config->name);
+
+	if (!iface)
+		return -1;
+
+	int event = LDP_SYNC_EVT_NONE;
+
+	if (config->sync_configured)
+		event = iface->ldp_sync.ldp_in_sync ? LDP_SYNC_EVT_CONFIG_SYNC_ON_LDP_IN_SYNC :
+			LDP_SYNC_EVT_CONFIG_SYNC_ON;
+	else
+		event = LDP_SYNC_EVT_CONFIG_SYNC_OFF;
 
 	return ldp_sync_fsm(iface, event);
 }

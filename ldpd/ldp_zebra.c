@@ -31,6 +31,7 @@
 #include "ldpd.h"
 #include "ldpe.h"
 #include "lde.h"
+#include "ldp_sync.h"
 #include "log.h"
 #include "ldp_debug.h"
 
@@ -101,6 +102,47 @@ pw2zpw(struct l2vpn_pw *pw, struct zapi_pw *zpw)
 	zpw->data.ldp.pwid = pw->pwid;
 	strlcpy(zpw->data.ldp.vpn_name, pw->l2vpn->name,
 	    sizeof(zpw->data.ldp.vpn_name));
+}
+
+static void ldp_zebra_opaque_register(void)
+{
+	zclient_register_opaque(zclient, LDP_IGP_SYNC_IF_CONFIG_UPDATE);
+}
+
+static void ldp_zebra_opaque_unregister(void)
+{
+	zclient_unregister_opaque(zclient, LDP_IGP_SYNC_IF_CONFIG_UPDATE);
+}
+
+int ldp_sync_state_update(struct ldp_igp_sync_if_state *state)
+{
+        return zclient_send_opaque(zclient, LDP_IGP_SYNC_IF_STATE_UPDATE,
+		(const uint8_t *) state, sizeof(*state));
+}
+
+static int ldp_zebra_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
+{
+	uint32_t type;
+	struct ldp_igp_sync_if_config config;
+	struct stream *s;
+
+	s = zclient->ibuf;
+
+	STREAM_GETL(s, type);
+
+	switch (type) {
+	case LDP_IGP_SYNC_IF_CONFIG_UPDATE:
+                STREAM_GET(&config, s, sizeof(config));
+		main_imsg_compose_lde(IMSG_LDP_IGP_SYNC_IF_CONFIG_UPDATE, 0, &config,
+			    sizeof(config));
+		break;
+	default:
+		break;
+	}
+
+stream_failure:
+
+        return 0;
 }
 
 static int
@@ -525,6 +567,8 @@ ldp_zebra_connected(struct zclient *zclient)
 	    ZEBRA_ROUTE_ALL, 0, VRF_DEFAULT);
 	zebra_redistribute_send(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP6,
 	    ZEBRA_ROUTE_ALL, 0, VRF_DEFAULT);
+
+	ldp_zebra_opaque_register();
 }
 
 static void
@@ -563,6 +607,7 @@ ldp_zebra_init(struct thread_master *master)
 	zclient->redistribute_route_add = ldp_zebra_read_route;
 	zclient->redistribute_route_del = ldp_zebra_read_route;
 	zclient->pw_status_update = ldp_zebra_read_pw_status_update;
+	zclient->opaque_msg_handler = ldp_zebra_opaque_msg_handler;
 
 	/* Access list initialize. */
 	access_list_add_hook(ldp_zebra_filter_update);
@@ -572,6 +617,7 @@ ldp_zebra_init(struct thread_master *master)
 void
 ldp_zebra_destroy(void)
 {
+	ldp_zebra_opaque_unregister();
 	zclient_stop(zclient);
 	zclient_free(zclient);
 	zclient = NULL;
