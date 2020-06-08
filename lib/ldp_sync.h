@@ -58,6 +58,18 @@ extern bool ldp_sync_if_is_enabled(struct ldp_sync_info *);
 extern void ldp_sync_if_down(struct ldp_sync_info *);
 extern void ldp_sync_info_free(struct ldp_sync_info **);
 
+struct ldp_igp_sync_if_state {
+	char name[INTERFACE_NAMSIZ];
+	ifindex_t ifindex;
+	bool sync_start;
+};
+
+struct ldp_igp_sync_if_config {
+	char name[INTERFACE_NAMSIZ];
+	ifindex_t ifindex;
+	bool sync_configured;
+};
+
 #ifdef __cplusplus
 }
 #endif
