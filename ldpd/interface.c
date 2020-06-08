@@ -720,8 +720,6 @@ iface_wait_for_ldp_sync_timer(struct thread *thread)
 	if (iface->ldp_sync.ldp_in_sync)
 		return 0;
 
-	iface->ldp_sync.ldp_in_sync = true;
-
 	ldp_sync_fsm(iface, LDP_SYNC_EVT_LDP_SYNC_COMPLETE);
 
 	return (0);
@@ -786,6 +784,8 @@ ldp_sync_act_ldp_complete_sync(struct iface *iface)
 {
 	log_debug("DBG_LDP_SYNC: %s: %d: interface %s (ldp in sync %d)",
 		    __func__, __LINE__, iface->name, iface->ldp_sync.ldp_in_sync);
+
+	iface->ldp_sync.ldp_in_sync = true;
 
 	return send_ldp_igp_sync_complete_msg(iface);
 }
@@ -997,4 +997,5 @@ ldp_sync_fsm_reset_all(void)
 		ldp_sync_fsm(iface, LDP_SYNC_EVT_CONFIG_LDP_OFF);
 }
 
+// LDP_SYNC_TODO should we update signal handler to send message to IGP on startup/shutdown?
 
