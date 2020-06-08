@@ -34,6 +34,7 @@
 #include "zclient.h"
 
 #include "ldp.h"
+#include "lib/ldp_sync.h"
 
 #define CONF_FILE		"/etc/ldpd.conf"
 #define LDPD_USER		"_ldpd"
@@ -153,7 +154,9 @@ enum imsg_type {
 	IMSG_INIT,
 	IMSG_PW_UPDATE,
 	IMSG_FILTER_UPDATE,
-	IMSG_NBR_SHUTDOWN
+	IMSG_NBR_SHUTDOWN,
+	IMSG_LDP_IGP_SYNC_IF_CONFIG_UPDATE,
+	IMSG_LDP_IGP_SYNC_IF_STATE_UPDATE
 };
 
 struct ldpd_init {
@@ -731,6 +734,8 @@ int		 kmpw_add(struct zapi_pw *);
 int		 kmpw_del(struct zapi_pw *);
 int		 kmpw_set(struct zapi_pw *);
 int		 kmpw_unset(struct zapi_pw *);
+
+int		 ldp_sync_state_update(struct ldp_igp_sync_if_state *);
 
 /* util.c */
 uint8_t		 mask2prefixlen(in_addr_t);

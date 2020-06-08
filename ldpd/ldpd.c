@@ -584,6 +584,13 @@ main_dispatch_ldpe(struct thread *thread)
 				fatalx("IMSG_ACL_CHECK imsg with wrong len");
 			ldp_acl_reply(iev, (struct acl_check *)imsg.data);
 			break;
+		case IMSG_LDP_IGP_SYNC_IF_STATE_UPDATE:
+			if (imsg.hdr.len != IMSG_HEADER_SIZE +
+			    sizeof(struct ldp_igp_sync_if_state))
+				fatalx("IMSG_LDP_IGP_SYNC_IF_STATE_UPDATE imsg with wrong len");
+
+			ldp_sync_state_update((struct ldp_igp_sync_if_state *)imsg.data);
+			break;
 		default:
 			log_debug("%s: error handling imsg %d", __func__,
 			    imsg.hdr.type);

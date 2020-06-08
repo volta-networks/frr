@@ -445,6 +445,7 @@ lde_dispatch_parent(struct thread *thread)
 	int			 shut = 0;
 	struct fec		 fec;
 	struct ldp_access	*laccess;
+	struct ldp_igp_sync_if_config *ldp_sync_if_config;
 
 	iev->ev_read = NULL;
 
@@ -648,6 +649,15 @@ lde_dispatch_parent(struct thread *thread)
 				laccess->name);
 			lde_check_filter_af(AF_INET6, &ldeconf->ipv6,
 				laccess->name);
+			break;
+		case IMSG_LDP_IGP_SYNC_IF_CONFIG_UPDATE:
+			if (imsg.hdr.len != IMSG_HEADER_SIZE +
+			    sizeof(struct ldp_igp_sync_if_config)) {
+				log_warnx("%s: wrong imsg len", __func__);
+				break;
+			}
+			ldp_sync_if_config = imsg.data;
+			ldp_sync_fsm_helper_ifconfig(ldp_sync_if_config);
 			break;
 		default:
 			log_debug("%s: unexpected imsg %d", __func__,
