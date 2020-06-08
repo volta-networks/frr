@@ -9,6 +9,7 @@ dist_examples_DATA += ospfd/ospfd.conf.sample
 vtysh_scan += \
 	ospfd/ospf_bfd.c \
 	ospfd/ospf_dump.c \
+	ospfd/ospf_ldp_sync.c \
 	ospfd/ospf_opaque.c \
 	ospfd/ospf_ri.c \
 	ospfd/ospf_routemap.c \
