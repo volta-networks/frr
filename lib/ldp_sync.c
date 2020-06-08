@@ -25,6 +25,7 @@
 #include "command.h"
 #include "memory.h"
 #include "prefix.h"
+#include "log.h"
 #include "thread.h"
 #include "stream.h"
 #include "zclient.h"
@@ -88,4 +89,19 @@ void ldp_sync_if_down(struct ldp_sync_info *ldp_sync_info)
 		    THREAD_TIMER_OFF(ldp_sync_info->t_holddown);
 	    ldp_sync_info->state = LDP_IGP_SYNC_STATE_REQUIRED_NOT_UP;
 	}
+}
+
+struct zclient  *zclient;
+
+void ldp_sync_igp_send_msg(struct interface *ifp, bool state)
+{
+	struct ldp_igp_sync_if_config if_config;
+
+	strlcpy(if_config.name, ifp->name, sizeof(ifp->name));
+	if_config.ifindex = ifp->ifindex;
+	if_config.sync_configured = state;
+
+	zlog_debug("LYNNE: %s if %s (%d), state %u",__func__,if_config.name,if_config.ifindex,if_config.sync_configured);
+	zclient_send_opaque(zclient, LDP_IGP_SYNC_IF_CONFIG_UPDATE,
+		(uint8_t *)&if_config, sizeof(if_config));
 }

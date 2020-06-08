@@ -51,6 +51,7 @@
 #include "ospfd/ospf_zebra.h"
 #include "ospfd/ospf_te.h"
 #include "ospfd/ospf_sr.h"
+#include "ospfd/ospf_ldp_sync.h"
 
 DEFINE_MTYPE_STATIC(OSPFD, OSPF_EXTERNAL, "OSPF External route table")
 DEFINE_MTYPE_STATIC(OSPFD, OSPF_REDISTRIBUTE, "OSPF Redistriute")
@@ -1719,7 +1720,11 @@ static void ospf_zebra_connected(struct zclient *zclient)
 	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER, VRF_DEFAULT);
 
 	zclient_send_reg_requests(zclient, VRF_DEFAULT);
+
+	/* register with opaque client to recv LDP-IGP Sync msgs */
+	zclient_register_opaque(zclient, LDP_IGP_SYNC_IF_STATE_UPDATE);
 }
+
 
 void ospf_zebra_init(struct thread_master *master, unsigned short instance)
 {
@@ -1740,4 +1745,6 @@ void ospf_zebra_init(struct thread_master *master, unsigned short instance)
 	access_list_delete_hook(ospf_filter_update);
 	prefix_list_add_hook(ospf_prefix_list_update);
 	prefix_list_delete_hook(ospf_prefix_list_update);
+
+	zclient->opaque_register_handler = ldp_igp_opaque_msg_handler;
 }
