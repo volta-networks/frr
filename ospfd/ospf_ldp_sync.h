@@ -32,15 +32,13 @@ extern void ospf_ldp_sync_if_init(struct ospf_interface *);
 extern void ospf_ldp_sync_if_up(struct interface *);
 extern void ospf_ldp_sync_if_remove(struct interface *);
 extern void ospf_ldp_sync_if_down(struct interface *);
-extern void ospf_ldp_sync_if_config(struct interface *);
 extern void ospf_ldp_sync_if_complete(struct interface *);
-
 extern void ospf_ldp_sync_holddown_timer_add(struct interface *);
 extern void ospf_ldp_sync_show_info(struct vty *, struct ospf *, json_object *,
 				    bool);
 extern void ospf_ldp_sync_write_config(struct vty *, struct ospf *);
 extern void ospf_ldp_sync_if_write_config(struct vty *, struct ospf_if_params *);
-extern int ldp_igp_opaque_msg_handler(ZAPI_CALLBACK_ARGS);
+extern int  ldp_igp_opaque_msg_handler(ZAPI_CALLBACK_ARGS);
 extern void ospf_ldp_sync_init(void);
 extern void ospf_ldp_sync_info_free(struct ospf_if_params *oip);
 #endif /* _ZEBRA_OSPF_LDP_SYNC_H */
