@@ -601,6 +601,7 @@ main_dispatch_ldpe(struct thread *thread)
 	if (!shut)
 		imsg_event_add(iev);
 	else {
+
 		/* this pipe is dead, so remove the event handlers and exit */
 		THREAD_READ_OFF(iev->ev_read);
 		THREAD_WRITE_OFF(iev->ev_write);
