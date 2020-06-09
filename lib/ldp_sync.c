@@ -101,7 +101,6 @@ void ldp_sync_igp_send_msg(struct interface *ifp, bool state)
 	if_config.ifindex = ifp->ifindex;
 	if_config.sync_configured = state;
 
-	zlog_debug("LYNNE: %s if %s (%d), state %u",__func__,if_config.name,if_config.ifindex,if_config.sync_configured);
 	zclient_send_opaque(zclient, LDP_IGP_SYNC_IF_CONFIG_UPDATE,
 		(uint8_t *)&if_config, sizeof(if_config));
 }

@@ -788,9 +788,6 @@ int ospf_if_up(struct ospf_interface *oi)
 		OSPF_ISM_EVENT_SCHEDULE(oi, ISM_LoopInd);
 	else {
 		OSPF_ISM_EVENT_SCHEDULE(oi, ISM_InterfaceUp);
-
-		/* If LDP-SYNC is configure on this interface then start it */
-		ospf_ldp_sync_if_up(oi->ifp);
 	}
 
 	return 1;
@@ -807,9 +804,6 @@ int ospf_if_down(struct ospf_interface *oi)
 	oi->lsa_pos_end = 0;
 	/* Shutdown packet reception and sending */
 	ospf_if_stream_unset(oi);
-
-	/* If LDP-SYNC is configure on this interface then stop it */
-	ospf_ldp_sync_if_down(oi->ifp);
 
 	return 1;
 }
