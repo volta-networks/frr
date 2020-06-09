@@ -93,14 +93,6 @@ ldpe_if_init(struct iface *iface)
 
 	/* LGP IGP Sync */
 	ldp_sync_fsm_init(iface, LDP_SYNC_STA_NOT_CONFIG);
-
-#if 1
-// LDP_SYNC_TODO Move this code to where we recv message from IGP that ldp-sync is configured...
-	if (iface->ldp_sync.ldp_in_sync)
-		ldp_sync_fsm(iface, LDP_SYNC_EVT_CONFIG_SYNC_ON_LDP_IN_SYNC);
-	else
-		ldp_sync_fsm(iface, LDP_SYNC_EVT_CONFIG_SYNC_ON);
-#endif
 }
 
 void
@@ -603,6 +595,7 @@ const struct {
     /* current state		event that happened		action to take			resulting state */
 /* LDP IGP Sync not configured */
     {LDP_SYNC_STA_NOT_CONFIG,	LDP_SYNC_EVT_CONFIG_SYNC_ON, 	LDP_SYNC_ACT_CONFIG_SYNC_ON,	LDP_SYNC_STA_NOT_REQ},
+    {LDP_SYNC_STA_NOT_CONFIG,	LDP_SYNC_EVT_CONFIG_SYNC_ON_LDP_IN_SYNC, LDP_SYNC_ACT_CONFIG_SYNC_ON_LDP_IN_SYNC, LDP_SYNC_STA_REQ_ACH},
     {LDP_SYNC_STA_NOT_CONFIG,	LDP_SYNC_EVT_LDP_SYNC_START, 	LDP_SYNC_ACT_LDP_START_SYNC,	0},
     {LDP_SYNC_STA_NOT_CONFIG,	LDP_SYNC_EVT_LDP_SYNC_COMPLETE, LDP_SYNC_ACT_LDP_COMPLETE_SYNC,	0},
 /* LDP IGP Sync not required */
@@ -612,7 +605,7 @@ const struct {
     {LDP_SYNC_STA_NOT_REQ,	LDP_SYNC_EVT_LDP_SYNC_START, 	LDP_SYNC_ACT_LDP_START_SYNC,	0},
     {LDP_SYNC_STA_NOT_REQ,	LDP_SYNC_EVT_LDP_SYNC_COMPLETE, LDP_SYNC_ACT_LDP_COMPLETE_SYNC,	0},
     {LDP_SYNC_STA_NOT_REQ,	LDP_SYNC_EVT_CONFIG_SYNC_ON,   	LDP_SYNC_ACT_CONFIG_SYNC_ON,	LDP_SYNC_STA_REQ_NOT_ACH},
-    {LDP_SYNC_STA_NOT_REQ,	LDP_SYNC_EVT_CONFIG_SYNC_ON_LDP_IN_SYNC, LDP_SYNC_ACT_CONFIG_SYNC_ON, LDP_SYNC_STA_REQ_ACH},
+    {LDP_SYNC_STA_NOT_REQ,	LDP_SYNC_EVT_CONFIG_SYNC_ON_LDP_IN_SYNC, LDP_SYNC_ACT_CONFIG_SYNC_ON_LDP_IN_SYNC, LDP_SYNC_STA_REQ_ACH},
     {LDP_SYNC_STA_NOT_REQ,	LDP_SYNC_EVT_CONFIG_LDP_OFF,	LDP_SYNC_ACT_CONFIG_LDP_OFF,	LDP_SYNC_STA_NOT_CONFIG},
 /* LDP IGP Sync required not achieved */
     {LDP_SYNC_STA_REQ_NOT_ACH,	LDP_SYNC_EVT_LDP_SYNC_START, 	LDP_SYNC_ACT_LDP_START_SYNC,	0},
@@ -919,7 +912,6 @@ ldp_sync_fsm_init(struct iface *iface, int state)
 int
 ldp_sync_fsm(struct iface *iface, enum ldp_sync_event event)
 {
-
 	bool verbose = true; // LDP_SYNC_TODO remove me
 #if 0
 	struct timeval	now;

@@ -133,7 +133,7 @@ static int ldp_zebra_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 	switch (type) {
 	case LDP_IGP_SYNC_IF_CONFIG_UPDATE:
                 STREAM_GET(&config, s, sizeof(config));
-		main_imsg_compose_lde(IMSG_LDP_IGP_SYNC_IF_CONFIG_UPDATE, 0, &config,
+		main_imsg_compose_ldpe(IMSG_LDP_IGP_SYNC_IF_CONFIG_UPDATE, 0, &config,
 			    sizeof(config));
 		break;
 	default:
