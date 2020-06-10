@@ -736,8 +736,6 @@ int		 kmpw_del(struct zapi_pw *);
 int		 kmpw_set(struct zapi_pw *);
 int		 kmpw_unset(struct zapi_pw *);
 
-int		 ldp_sync_state_update(struct ldp_igp_sync_if_state *);
-
 /* util.c */
 uint8_t		 mask2prefixlen(in_addr_t);
 uint8_t		 mask2prefixlen6(struct sockaddr_in6 *);
@@ -873,6 +871,8 @@ extern char			 ctl_sock_path[MAXPATHLEN];
 /* ldp_zebra.c */
 void		 ldp_zebra_init(struct thread_master *);
 void		 ldp_zebra_destroy(void);
+int		 ldp_sync_send_state_update(struct ldp_igp_sync_if_state *);
+
 
 /* compatibility */
 #ifndef __OpenBSD__
