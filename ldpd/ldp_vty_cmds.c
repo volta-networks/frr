@@ -232,7 +232,7 @@ DEFPY  (ldp_ordered_control,
 
 DEFPY  (ldp_wait_for_sync,
         ldp_wait_for_sync_cmd,
-        "[no] wait-for-sync (1-10000)$waitforsync",
+        "[no] wait-for-sync [(1-10000)$waitforsync]",
         NO_STR
         "Configure LDP wait-for-sync interval\n"
         "Time (seconds)\n")
