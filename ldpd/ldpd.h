@@ -563,6 +563,7 @@ struct ldpd_conf {
 	uint16_t		 thello_holdtime;
 	uint16_t		 thello_interval;
 	uint16_t		 trans_pref;
+	uint16_t		 wait_for_sync_interval;
 	int			 flags;
 	QOBJ_FIELDS
 };

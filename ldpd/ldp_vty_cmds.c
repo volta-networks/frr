@@ -230,6 +230,17 @@ DEFPY  (ldp_ordered_control,
 	return (ldp_vty_ordered_control(vty, no));
 }
 
+DEFPY  (ldp_wait_for_sync,
+        ldp_wait_for_sync_cmd,
+        "[no] wait-for-sync (1-10000)$waitforsync",
+        NO_STR
+        "Configure LDP wait-for-sync interval\n"
+        "Time (seconds)\n")
+{
+        return (ldp_vty_wait_for_sync_interval(vty, no, waitforsync));
+
+}
+
 DEFPY  (ldp_discovery_targeted_hello_accept,
 	ldp_discovery_targeted_hello_accept_cmd,
 	"[no] discovery targeted-hello accept [from <(1-199)|(1300-2699)|WORD>$from_acl]",
@@ -817,6 +828,7 @@ ldp_vty_init (void)
 	install_element(LDP_NODE, &ldp_neighbor_ttl_security_cmd);
 	install_element(LDP_NODE, &ldp_router_id_cmd);
 	install_element(LDP_NODE, &ldp_ordered_control_cmd);
+	install_element(LDP_NODE, &ldp_wait_for_sync_cmd);
 
 	install_element(LDP_IPV4_NODE, &ldp_discovery_link_holdtime_cmd);
 	install_element(LDP_IPV4_NODE, &ldp_discovery_targeted_holdtime_cmd);

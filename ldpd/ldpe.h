@@ -230,6 +230,7 @@ void		 ldp_if_update(struct iface *, int);
 void		 if_update_all(int);
 uint16_t	 if_get_hello_holdtime(struct iface_af *);
 uint16_t	 if_get_hello_interval(struct iface_af *);
+uint16_t	 if_get_wait_for_sync_interval(void);
 struct ctl_iface *if_to_ctl(struct iface_af *);
 in_addr_t	 if_get_ipv4_addr(struct iface *);
 int		 ldp_sync_fsm_helper_adj(struct adj *, enum ldp_sync_event);
