@@ -589,7 +589,7 @@ main_dispatch_ldpe(struct thread *thread)
 			    sizeof(struct ldp_igp_sync_if_state))
 				fatalx("IMSG_LDP_IGP_SYNC_IF_STATE_UPDATE imsg with wrong len");
 
-			ldp_sync_state_update((struct ldp_igp_sync_if_state *)imsg.data);
+			ldp_sync_send_state_update((struct ldp_igp_sync_if_state *)imsg.data);
 			break;
 		default:
 			log_debug("%s: error handling imsg %d", __func__,
