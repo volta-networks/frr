@@ -434,6 +434,12 @@ if_get_hello_interval(struct iface_af *ia)
 	return (leconf->lhello_interval);
 }
 
+uint16_t
+if_get_wait_for_sync_interval(void)
+{
+	return (leconf->wait_for_sync_interval);
+}
+
 /* timers */
 /* ARGSUSED */
 static int
@@ -731,9 +737,6 @@ iface_wait_for_ldp_sync_timer(struct thread *thread)
 	return (0);
 }
 
-// TBD remove LDP_WAIT_FOR_SYNC_DURATION_SEC when CLI is complete
-#define LDP_WAIT_FOR_SYNC_DURATION_SEC 10
-
 static void start_wait_for_ldp_sync_timer(struct iface *iface)
 {
 	log_debug("DBG_LDP_SYNC: %s: %d: interface %s (ldp in sync %d)",
@@ -741,7 +744,8 @@ static void start_wait_for_ldp_sync_timer(struct iface *iface)
 
 	THREAD_TIMER_OFF(iface->ldp_sync.wait_for_ldp_sync_timer);
 	iface->ldp_sync.wait_for_ldp_sync_timer = NULL;
-	thread_add_timer(master, iface_wait_for_ldp_sync_timer, iface, LDP_WAIT_FOR_SYNC_DURATION_SEC,
+	thread_add_timer(master, iface_wait_for_ldp_sync_timer, iface,
+			if_get_wait_for_sync_interval(),
 			&iface->ldp_sync.wait_for_ldp_sync_timer);
 }
 

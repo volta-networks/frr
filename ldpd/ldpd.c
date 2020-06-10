@@ -1156,6 +1156,7 @@ ldp_config_reset_main(struct ldpd_conf *conf)
 	conf->lhello_interval = DEFAULT_HELLO_INTERVAL;
 	conf->thello_holdtime = TARGETED_DFLT_HOLDTIME;
 	conf->thello_interval = DEFAULT_HELLO_INTERVAL;
+	conf->wait_for_sync_interval = DFLT_WAIT_FOR_SYNC;
 	conf->trans_pref = DUAL_STACK_LDPOV6;
 	conf->flags = 0;
 }
@@ -1319,6 +1320,7 @@ merge_global(struct ldpd_conf *conf, struct ldpd_conf *xconf)
 	conf->lhello_interval = xconf->lhello_interval;
 	conf->thello_holdtime = xconf->thello_holdtime;
 	conf->thello_interval = xconf->thello_interval;
+	conf->wait_for_sync_interval = xconf->wait_for_sync_interval;
 
 	if (conf->trans_pref != xconf->trans_pref) {
 		if (ldpd_process == PROC_LDP_ENGINE)
