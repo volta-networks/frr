@@ -78,7 +78,7 @@ int ldp_igp_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 		ifp = if_lookup_by_index(state.ifindex, VRF_DEFAULT);
 		if (ifp) {
 			if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
-				zlog_debug("LDP-SYNC: rcvd %s from LDP if %s",
+				zlog_debug("ldp_sync: rcvd %s from LDP if %s",
 					state.sync_start
 					? "sync-start"
 					: "sync-complete",
@@ -154,7 +154,7 @@ void ospf_ldp_sync_if_up(struct interface *ifp)
 	    ldp_sync_info->enabled == LDP_IGP_SYNC_ENABLED &&
 	    ldp_sync_info->state == LDP_IGP_SYNC_STATE_REQUIRED_NOT_UP) {
 		if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
-			zlog_debug("LDP-SYNC: sync start on if %s state: %s",
+			zlog_debug("ldp_sync: sync start on if %s state: %s",
 				ifp->name, "Holding down until Sync");
 		ospf_if_recalculate_output_cost(ifp);
 		ospf_ldp_sync_holddown_timer_add(ifp);
@@ -168,7 +168,7 @@ void ospf_ldp_sync_if_down(struct interface *ifp)
 	params = IF_DEF_PARAMS(ifp);
 
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
-		zlog_debug("LDP-SYNC: down on if %s",ifp->name);
+		zlog_debug("ldp_sync: down on if %s",ifp->name);
 
 	ldp_sync_if_down(params->ldp_sync_info);
 
@@ -188,6 +188,9 @@ void ospf_ldp_sync_if_remove(struct interface *ifp)
 	 *   send msg to LDP to stop running LDP-SYNC on this interface
 	 *   delete ldp instance on interface
 	 */
+	if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
+		zlog_debug("ldp_sync: Removed from if %s",ifp->name);
+
 	if (ldp_sync_info->t_holddown != NULL) {
 		THREAD_TIMER_OFF(ldp_sync_info->t_holddown);
 		ldp_sync_info->state = LDP_IGP_SYNC_STATE_NOT_REQUIRED;
@@ -196,8 +199,6 @@ void ospf_ldp_sync_if_remove(struct interface *ifp)
 
 	ospf_ldp_sync_igp_send_msg(ifp, false);
 	ospf_ldp_sync_info_free(params);
-	if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
-		zlog_debug("LDP-SYNC: Removed from if %s",ifp->name);
 }
 
 static int ospf_ldp_sync_ism_change(struct ospf_interface *oi, int state,
@@ -223,7 +224,7 @@ static int ospf_ldp_sync_ism_change(struct ospf_interface *oi, int state,
 void ospf_ldp_sync_igp_send_msg(struct interface *ifp, bool state)
 {
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
-		zlog_debug("LDP-SYNC: send %s to LDP if %s",
+		zlog_debug("ldp_sync: send %s to LDP if %s",
 			state ? "enable" : "disable", ifp->name);
 
 	ldp_sync_igp_send_msg(ifp, state);
@@ -246,7 +247,7 @@ static int ospf_ldp_sync_holddown_timer(struct thread *thread)
 	ldp_sync_info->t_holddown = NULL;
 
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
-		zlog_debug("LDP-SYNC: holddown timer expired for %s state: %s",
+		zlog_debug("ldp_sync: holddown timer expired for %s state: %s",
 			   ifp->name, "Sync achieved");
 
 	/* restore interface cost to original value */
@@ -267,7 +268,7 @@ void ospf_ldp_sync_holddown_timer_add(struct interface *ifp)
 		return;
 
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
-		zlog_debug("LDP-SYNC: start holddown timer for %s time %d",
+		zlog_debug("ldp_sync: start holddown timer for %s time %d",
 			   ifp->name, ldp_sync_info->holddown);
 
 	/* Set timer. */
@@ -320,7 +321,7 @@ void ospf_if_set_ldp_sync_enable(struct ospf *ospf, struct interface *ifp)
 		ldp_sync_info->enabled = LDP_IGP_SYNC_ENABLED;
 
 		if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
-			zlog_debug("LDP-SYNC: enable if %s", ifp->name);
+			zlog_debug("ldp_sync: enable if %s", ifp->name);
 
 		/* send message to LDP if ptop link */
 		if (params->type == OSPF_IFTYPE_POINTOPOINT) {
@@ -330,18 +331,16 @@ void ospf_if_set_ldp_sync_enable(struct ospf *ospf, struct interface *ifp)
 		} else {
 			params->ldp_sync_info->state =
 				LDP_IGP_SYNC_STATE_NOT_REQUIRED;
-			zlog_debug("LDP-SYNC: Sync only runs on P2P links %s",
+			zlog_debug("ldp_sync: Sync only runs on P2P links %s",
 				   ifp->name);
 		}
 	} else {
-		/* delete LDP sync unless config on interface */
+		/* delete LDP sync unless enabled on interface */
 		ldp_sync_info = params->ldp_sync_info;
 		if (ldp_sync_info == NULL ||
-		    CHECK_FLAG(ldp_sync_info->flags, LDP_SYNC_FLAG_IF_CONFIG))
+		    (CHECK_FLAG(ldp_sync_info->flags, LDP_SYNC_FLAG_IF_CONFIG)
+		    && ldp_sync_info->enabled == LDP_IGP_SYNC_ENABLED))
 			return;
-
-		if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
-			zlog_debug("LDP-SYNC: disable if %s", ifp->name);
 
 		ospf_ldp_sync_if_remove(ifp);
 	}
@@ -709,7 +708,7 @@ DEFUN (mpls_ldp_sync,
 		ldp_sync_info->state = LDP_IGP_SYNC_STATE_REQUIRED_NOT_UP;
 		ospf_ldp_sync_igp_send_msg(ifp, true);
 	} else {
-		zlog_debug("LDP-SYNC: only runs on P2P links %s", ifp->name);
+		zlog_debug("ldp_sync: only runs on P2P links %s", ifp->name);
 		ldp_sync_info->state = LDP_IGP_SYNC_STATE_NOT_REQUIRED;
 	}
 	return CMD_SUCCESS;
@@ -733,6 +732,11 @@ DEFUN (no_mpls_ldp_sync,
 		params->ldp_sync_info = ldp_sync_info_create();
 	ldp_sync_info = params->ldp_sync_info;
 
+	/* disable LDP-SYNC on an interface
+         *  stop holddown timer if running
+         *  restore ospf cost
+         *  send message to LDP
+         */
 	if (ldp_sync_info->enabled == LDP_IGP_SYNC_ENABLED &&
 	    ldp_sync_info->t_holddown != NULL)
 		    ldp_sync_was_running = true;
@@ -740,6 +744,7 @@ DEFUN (no_mpls_ldp_sync,
 	SET_FLAG(ldp_sync_info->flags, LDP_SYNC_FLAG_IF_CONFIG);
 	ldp_sync_info->enabled = LDP_IGP_SYNC_DEFAULT;
 	ldp_sync_info->state = LDP_IGP_SYNC_STATE_NOT_REQUIRED;
+	ospf_ldp_sync_igp_send_msg(ifp, false);
 
 	if (ldp_sync_was_running) {
 		THREAD_TIMER_OFF(ldp_sync_info->t_holddown);
