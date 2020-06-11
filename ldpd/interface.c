@@ -146,6 +146,9 @@ if_update_info(struct iface *iface, struct kif *kif)
 	    kif->flags & IFF_MULTICAST)
 		iface->type = IF_TYPE_BROADCAST;
 
+	if (ldpd_process == PROC_LDP_ENGINE && iface->operative && !kif->operative)
+		ldp_sync_fsm(iface, LDP_SYNC_EVT_IFACE_SHUTDOWN);
+
 	/* get index and flags */
 	iface->ifindex = kif->ifindex;
 	iface->operative = kif->operative;
@@ -604,6 +607,7 @@ const struct {
     {LDP_SYNC_STA_NOT_CONFIG,	LDP_SYNC_EVT_CONFIG_SYNC_ON_LDP_IN_SYNC, LDP_SYNC_ACT_CONFIG_SYNC_ON_LDP_IN_SYNC, LDP_SYNC_STA_REQ_ACH},
     {LDP_SYNC_STA_NOT_CONFIG,	LDP_SYNC_EVT_LDP_SYNC_START, 	LDP_SYNC_ACT_LDP_START_SYNC,	0},
     {LDP_SYNC_STA_NOT_CONFIG,	LDP_SYNC_EVT_LDP_SYNC_COMPLETE, LDP_SYNC_ACT_LDP_COMPLETE_SYNC,	0},
+    {LDP_SYNC_STA_NOT_CONFIG,	LDP_SYNC_EVT_IFACE_SHUTDOWN, 	LDP_SYNC_ACT_NOTHING,		0},
 /* LDP IGP Sync not required */
     {LDP_SYNC_STA_NOT_REQ,	LDP_SYNC_EVT_ADJ_DEL, 		LDP_SYNC_ACT_IFACE_START_SYNC,	LDP_SYNC_STA_REQ_NOT_ACH},
     {LDP_SYNC_STA_NOT_REQ,	LDP_SYNC_EVT_ADJ_NEW, 		LDP_SYNC_ACT_IFACE_START_SYNC,	LDP_SYNC_STA_REQ_NOT_ACH},
@@ -614,6 +618,7 @@ const struct {
     {LDP_SYNC_STA_NOT_REQ,	LDP_SYNC_EVT_CONFIG_SYNC_ON_LDP_IN_SYNC, LDP_SYNC_ACT_CONFIG_SYNC_ON_LDP_IN_SYNC, LDP_SYNC_STA_REQ_ACH},
     {LDP_SYNC_STA_NOT_REQ,	LDP_SYNC_EVT_CONFIG_SYNC_OFF,  	LDP_SYNC_ACT_CONFIG_SYNC_OFF,	LDP_SYNC_STA_NOT_CONFIG},
     {LDP_SYNC_STA_NOT_REQ,	LDP_SYNC_EVT_CONFIG_LDP_OFF,	LDP_SYNC_ACT_CONFIG_LDP_OFF,	LDP_SYNC_STA_NOT_CONFIG},
+    {LDP_SYNC_STA_NOT_REQ,	LDP_SYNC_EVT_IFACE_SHUTDOWN, 	LDP_SYNC_ACT_NOTHING,		0},
 /* LDP IGP Sync required not achieved */
     {LDP_SYNC_STA_REQ_NOT_ACH,	LDP_SYNC_EVT_ADJ_DEL, 		LDP_SYNC_ACT_NOTHING,		0},
     {LDP_SYNC_STA_REQ_NOT_ACH,	LDP_SYNC_EVT_ADJ_NEW, 		LDP_SYNC_ACT_NOTHING,		0},
@@ -623,6 +628,7 @@ const struct {
     {LDP_SYNC_STA_REQ_NOT_ACH,	LDP_SYNC_EVT_CONFIG_SYNC_ON_LDP_IN_SYNC, LDP_SYNC_ACT_NOTHING, 	0},
     {LDP_SYNC_STA_REQ_NOT_ACH,	LDP_SYNC_EVT_CONFIG_SYNC_OFF,  	LDP_SYNC_ACT_CONFIG_SYNC_OFF,	LDP_SYNC_STA_NOT_CONFIG},
     {LDP_SYNC_STA_REQ_NOT_ACH,	LDP_SYNC_EVT_CONFIG_LDP_OFF,	LDP_SYNC_ACT_CONFIG_LDP_OFF,	LDP_SYNC_STA_NOT_CONFIG},
+    {LDP_SYNC_STA_REQ_NOT_ACH,	LDP_SYNC_EVT_IFACE_SHUTDOWN, 	LDP_SYNC_ACT_IFACE_SHUTDOWN,	LDP_SYNC_STA_NOT_REQ},
 /* LDP IGP Sync required achieved */
     {LDP_SYNC_STA_REQ_ACH,	LDP_SYNC_EVT_ADJ_NEW, 		LDP_SYNC_ACT_NOTHING,		0},
     {LDP_SYNC_STA_REQ_ACH,	LDP_SYNC_EVT_ADJ_DEL, 		LDP_SYNC_ACT_IFACE_START_SYNC,	LDP_SYNC_STA_REQ_NOT_ACH},
@@ -632,6 +638,7 @@ const struct {
     {LDP_SYNC_STA_REQ_ACH,	LDP_SYNC_EVT_CONFIG_SYNC_OFF,  	LDP_SYNC_ACT_CONFIG_SYNC_OFF,	LDP_SYNC_STA_NOT_CONFIG},
     {LDP_SYNC_STA_REQ_ACH,	LDP_SYNC_EVT_CONFIG_LDP_OFF,	LDP_SYNC_ACT_CONFIG_LDP_OFF,	LDP_SYNC_STA_NOT_CONFIG},
     {LDP_SYNC_STA_REQ_ACH,	LDP_SYNC_EVT_LDP_SYNC_START, 	LDP_SYNC_ACT_NOTHING,		0},
+    {LDP_SYNC_STA_REQ_ACH,	LDP_SYNC_EVT_IFACE_SHUTDOWN, 	LDP_SYNC_ACT_IFACE_SHUTDOWN,	LDP_SYNC_STA_NOT_REQ},
     {-1,			LDP_SYNC_EVT_NOTHING,		LDP_SYNC_ACT_NOTHING,		0},
 };
 
@@ -648,18 +655,20 @@ const char * const ldp_sync_event_names[] = {
 	"IFACE SYNC START (SESSION CLOSE)",
 	"IFACE SYNC START (CONFIG LDP ON)",
 	"IFACE SYNC COMPLETE",
+	"IFACE SHUTDOWN",
 	"N/A"
 };
 
 const char * const ldp_sync_action_names[] = {
 	"NOTHING",
-	"INTERFACE SYNC START",
+	"IFACE SYNC START",
 	"LDP START SYNC",
 	"LDP COMPLETE SYNC",
 	"CONFIG SYNC ON",
 	"CONFIG SYNC ON (LDP IN SYNC)",
 	"CONFIG SYNC OFF",
 	"CONFIG LDP OFF",
+	"IFACE SHUTDOWN",
 	"N/A"
 };
 
@@ -836,6 +845,9 @@ ldp_sync_fsm_helper_adj(struct adj *adj, enum ldp_sync_event event)
 
 	struct iface *iface = adj->source.link.ia->iface;
 
+	if (!iface->operative)
+		return 0;
+
 	return ldp_sync_fsm(iface, event);
 }
 
@@ -851,6 +863,9 @@ ldp_sync_fsm_helper_nbr(struct nbr *nbr, enum ldp_sync_event event)
 
 	if (!iface)
 		return -1;
+
+	if (!iface->operative)
+		return 0;
 
 	log_debug("DBG_LDP_SYNC: %s: %d: interface=%s, ifindex=%d, state=%d=%s, nbr_count=%d",
 		__FUNCTION__, __LINE__, iface->name, iface->ifindex,
@@ -974,9 +989,22 @@ ldp_sync_fsm(struct iface *iface, enum ldp_sync_event event)
 	case LDP_SYNC_ACT_CONFIG_LDP_OFF:
 		ldp_sync_fsm_init(iface, LDP_SYNC_STA_NOT_CONFIG);
 		break;
+	case LDP_SYNC_ACT_IFACE_SHUTDOWN:
+		ldp_sync_fsm_init(iface, LDP_SYNC_STA_NOT_REQ);
+		break;
 	case LDP_SYNC_ACT_NOTHING:
 		/* do nothing */
 		break;
+	}
+
+	if (ldpd_process != PROC_LDP_ENGINE) {
+		log_debug("DBG_LDP_SYNC: %s: WARNING!  FSM not running in PROC_LDP_ENGINE, event %s (%d), action %s (%d), "
+		    "interface %s",
+		    __func__, ldp_sync_event_names[event],
+		    event,
+		    ldp_sync_action_names[ldp_sync_fsm_tbl[i].action],
+		    ldp_sync_fsm_tbl[i].action,
+		    iface->name);
 	}
 
 	if (old_state != iface->ldp_sync.state) {
