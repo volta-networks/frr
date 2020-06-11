@@ -27,8 +27,9 @@ extern "C" {
 #endif
 
 /* LDP-IGP Sync values */
-#define LDP_SYNC_FLAG_ENABLE   (1 << 0) /* parameters have been configured */
-#define LDP_SYNC_FLAG_HOLDDOWN (1 << 1) /* parameters have been configured */
+#define LDP_SYNC_FLAG_ENABLE    (1 << 0) /* parameters have been configured */
+#define LDP_SYNC_FLAG_HOLDDOWN  (1 << 1) /* parameters have been configured */
+#define LDP_SYNC_FLAG_IF_CONFIG (1 << 2) /* parameters have been configured */
 
 #define LDP_IGP_SYNC_DEFAULT        0
 #define LDP_IGP_SYNC_ENABLED        1
