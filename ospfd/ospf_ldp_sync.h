@@ -24,8 +24,6 @@
 
 #define LDP_OSPF_LSINFINITY 65535
 
-extern uint8_t ospf_if_get_ldp_sync_enable(struct ospf_interface *);
-extern uint16_t ospf_if_get_ldp_sync_holddown(struct ospf_interface *);
 extern void ospf_if_set_ldp_sync_enable(struct ospf *, struct interface *);
 extern void ospf_if_set_ldp_sync_holddown(struct ospf *, struct interface *);
 extern void ospf_ldp_sync_if_init(struct ospf_interface *);
