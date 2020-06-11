@@ -23,6 +23,7 @@
 #include "ldpd.h"
 #include "ldpe.h"
 #include "log.h"
+#include "ldp_debug.h"
 
 #include "sockopt.h"
 
@@ -693,7 +694,7 @@ ldp_sync_state_name(int state)
 static int
 send_ldp_igp_sync_start_msg(struct iface *iface)
 {
-	log_debug("DBG_LDP_SYNC: %s: %d: interface %s (ldp in sync %d)",
+	debug_evt_ldp_sync("DBG_LDP_SYNC: %s: %d: interface %s (ldp in sync %d)",
 		    __func__, __LINE__, iface->name, iface->ldp_sync.ldp_in_sync);
 
 	struct ldp_igp_sync_if_state state;
@@ -711,7 +712,7 @@ send_ldp_igp_sync_start_msg(struct iface *iface)
 static int
 send_ldp_igp_sync_complete_msg(struct iface *iface)
 {
-	log_debug("DBG_LDP_SYNC: %s: %d: interface %s (ldp in sync %d)",
+	debug_evt_ldp_sync("DBG_LDP_SYNC: %s: %d: interface %s (ldp in sync %d)",
 		    __func__, __LINE__, iface->name, iface->ldp_sync.ldp_in_sync);
 
 	struct ldp_igp_sync_if_state state;
@@ -727,7 +728,7 @@ send_ldp_igp_sync_complete_msg(struct iface *iface)
 static int
 ldp_sync_act_iface_start_sync(struct iface *iface)
 {
-	log_debug("DBG_LDP_SYNC: %s: %d: interface %s (ldp in sync %d)",
+	debug_evt_ldp_sync("DBG_LDP_SYNC: %s: %d: interface %s (ldp in sync %d)",
 		    __func__, __LINE__, iface->name, iface->ldp_sync.ldp_in_sync);
 
 	iface->ldp_sync.ldp_in_sync = false;
@@ -740,7 +741,7 @@ iface_wait_for_ldp_sync_timer(struct thread *thread)
 {
 	struct iface *iface = THREAD_ARG(thread);
 
-	log_debug("DBG_LDP_SYNC: %s: %d: interface %s (ldp in sync %d)",
+	debug_evt_ldp_sync("DBG_LDP_SYNC: %s: %d: interface %s (ldp in sync %d)",
 		    __func__, __LINE__, iface->name, iface->ldp_sync.ldp_in_sync);
 
 	if (iface->ldp_sync.ldp_in_sync)
@@ -753,7 +754,7 @@ iface_wait_for_ldp_sync_timer(struct thread *thread)
 
 static void start_wait_for_ldp_sync_timer(struct iface *iface)
 {
-	log_debug("DBG_LDP_SYNC: %s: %d: interface %s (ldp in sync %d)",
+	debug_evt_ldp_sync("DBG_LDP_SYNC: %s: %d: interface %s (ldp in sync %d)",
 		    __func__, __LINE__, iface->name, iface->ldp_sync.ldp_in_sync);
 
 	THREAD_TIMER_OFF(iface->ldp_sync.wait_for_ldp_sync_timer);
@@ -765,7 +766,7 @@ static void start_wait_for_ldp_sync_timer(struct iface *iface)
 
 static void stop_wait_for_ldp_sync_timer(struct iface *iface)
 {
-	log_debug("DBG_LDP_SYNC: %s: %d: interface %s (ldp in sync %d)",
+	debug_evt_ldp_sync("DBG_LDP_SYNC: %s: %d: interface %s (ldp in sync %d)",
 		    __func__, __LINE__, iface->name, iface->ldp_sync.ldp_in_sync);
 
 	THREAD_TIMER_OFF(iface->ldp_sync.wait_for_ldp_sync_timer);
@@ -775,7 +776,7 @@ static void stop_wait_for_ldp_sync_timer(struct iface *iface)
 static int
 ldp_sync_act_ldp_start_sync(struct iface *iface)
 {
-	log_debug("DBG_LDP_SYNC: %s: %d: interface %s (ldp in sync %d)",
+	debug_evt_ldp_sync("DBG_LDP_SYNC: %s: %d: interface %s (ldp in sync %d)",
 		    __func__, __LINE__, iface->name, iface->ldp_sync.ldp_in_sync);
 
 	start_wait_for_ldp_sync_timer(iface);
@@ -786,7 +787,7 @@ ldp_sync_act_ldp_start_sync(struct iface *iface)
 static int
 ldp_sync_act_config_sync_on_ldp_in_sync(struct iface *iface)
 {
-	log_debug("DBG_LDP_SYNC: %s: %d: interface %s (ldp in sync %d)",
+	debug_evt_ldp_sync("DBG_LDP_SYNC: %s: %d: interface %s (ldp in sync %d)",
 		    __func__, __LINE__, iface->name, iface->ldp_sync.ldp_in_sync);
 
 	return send_ldp_igp_sync_complete_msg(iface);
@@ -795,7 +796,7 @@ ldp_sync_act_config_sync_on_ldp_in_sync(struct iface *iface)
 static int
 ldp_sync_act_config_sync_off(struct iface *iface)
 {
-	log_debug("DBG_LDP_SYNC: %s: %d: interface %s (ldp in sync %d)",
+	debug_evt_ldp_sync("DBG_LDP_SYNC: %s: %d: interface %s (ldp in sync %d)",
 		    __func__, __LINE__, iface->name, iface->ldp_sync.ldp_in_sync);
 
 	stop_wait_for_ldp_sync_timer(iface);
@@ -806,7 +807,7 @@ ldp_sync_act_config_sync_off(struct iface *iface)
 static int
 ldp_sync_act_ldp_complete_sync(struct iface *iface)
 {
-	log_debug("DBG_LDP_SYNC: %s: %d: interface %s (ldp in sync %d)",
+	debug_evt_ldp_sync("DBG_LDP_SYNC: %s: %d: interface %s (ldp in sync %d)",
 		    __func__, __LINE__, iface->name, iface->ldp_sync.ldp_in_sync);
 
 	iface->ldp_sync.ldp_in_sync = true;
@@ -839,7 +840,7 @@ ldp_sync_fsm_helper_adj(struct adj *adj, enum ldp_sync_event event)
         if (HELLO_LINK != adj->source.type)
 		return -1;
 
-	log_debug("DBG_LDP_SYNC: %s: %d: adj iface %s, event %s (%d)",
+	debug_evt_ldp_sync("DBG_LDP_SYNC: %s: %d: adj iface %s, event %s (%d)",
 		    __func__, __LINE__,
 		    adj->source.link.ia->iface->name,
 		    ldp_sync_event_names[event], event);
@@ -855,7 +856,7 @@ ldp_sync_fsm_helper_adj(struct adj *adj, enum ldp_sync_event event)
 int
 ldp_sync_fsm_helper_nbr(struct nbr *nbr, enum ldp_sync_event event)
 {
-	log_debug("DBG_LDP_SYNC: %s: %d: lsr-id %s, event %s (%d)",
+	debug_evt_ldp_sync("DBG_LDP_SYNC: %s: %d: lsr-id %s, event %s (%d)",
 		    __func__, __LINE__, inet_ntoa(nbr->id),
 		    ldp_sync_event_names[event], event);
 
@@ -868,7 +869,7 @@ ldp_sync_fsm_helper_nbr(struct nbr *nbr, enum ldp_sync_event event)
 	if (!iface->operative)
 		return 0;
 
-	log_debug("DBG_LDP_SYNC: %s: %d: interface=%s, ifindex=%d, state=%d=%s, nbr_count=%d",
+	debug_evt_ldp_sync("DBG_LDP_SYNC: %s: %d: interface=%s, ifindex=%d, state=%d=%s, nbr_count=%d",
 		__FUNCTION__, __LINE__, iface->name, iface->ifindex,
 		iface->ldp_sync.state, ldp_sync_state_name(iface->ldp_sync.state), nbr_count);
 
@@ -885,7 +886,7 @@ ldp_sync_fsm_helper_nbr(struct nbr *nbr, enum ldp_sync_event event)
 int
 ldp_sync_fsm_helper_ifconfig(struct ldp_igp_sync_if_config *config)
 {
-	log_debug("DBG_LDP_SYNC: %s: %d: if %s configured %d",
+	debug_evt_ldp_sync("DBG_LDP_SYNC: %s: %d: if %s configured %d",
 		    __func__, __LINE__, config->name, config->sync_configured);
 
 	struct iface *iface = if_lookup_name(leconf, config->name);
@@ -907,7 +908,7 @@ ldp_sync_fsm_helper_ifconfig(struct ldp_igp_sync_if_config *config)
 static int
 ldp_sync_fsm_init(struct iface *iface, int state)
 {
-	log_debug("DBG_LDP_SYNC: %s: %d: interface %s (ldp in sync %d)",
+	debug_evt_ldp_sync("DBG_LDP_SYNC: %s: %d: interface %s (ldp in sync %d)",
 		    __func__, __LINE__, iface->name, iface->ldp_sync.ldp_in_sync);
 
 	bool verbose = false; // LDP_SYNC_TODO remove me
@@ -921,7 +922,7 @@ ldp_sync_fsm_init(struct iface *iface, int state)
 
 	if (verbose || old_state != iface->ldp_sync.state)
 	{
-		log_debug("%s: resulted in "
+		debug_evt_ldp_sync("%s: resulted in "
 		    "changing state for interface %s from %s (%d) to %s (%d), ldp in sync %d->%d",
 		    __func__,
 		    iface->name, ldp_sync_state_name(old_state), old_state,
@@ -947,7 +948,7 @@ ldp_sync_fsm(struct iface *iface, enum ldp_sync_event event)
 	int		old_ldp_in_sync = iface->ldp_sync.ldp_in_sync;
 
 #if 0
-	log_debug("DBG_LDP_SYNC: %s: %d: interface %s (ldp in sync %d)",
+	debug_evt_ldp_sync("DBG_LDP_SYNC: %s: %d: interface %s (ldp in sync %d)",
 		    __func__, __LINE__, iface->name, iface->ldp_sync.ldp_in_sync);
 #endif
 
@@ -1010,7 +1011,7 @@ ldp_sync_fsm(struct iface *iface, enum ldp_sync_event event)
 
 	if (old_state != iface->ldp_sync.state) {
 
-		log_debug("%s: event %s (%d) resulted in action %s (%d) and "
+		debug_evt_ldp_sync("%s: event %s (%d) resulted in action %s (%d) and "
 		    "changing state for interface %s from %s (%d) to %s (%d), ldp in sync %d->%d",
 		    __func__, ldp_sync_event_names[event],
 		    event,
@@ -1033,7 +1034,7 @@ ldp_sync_fsm(struct iface *iface, enum ldp_sync_event event)
 	else if (verbose)
 	{
 // LDP_SYNC_TODO: consider logging all FSM calls - maybe on verbose debug?
-		log_debug("%s: event %s (%d) resulted in action %s (%d) "
+		debug_evt_ldp_sync("%s: event %s (%d) resulted in action %s (%d) "
 		    "for interface %s, remaining in state %s (%d), ldp in sync %d->%d",
 		    __func__, ldp_sync_event_names[event],
 		    event,
@@ -1054,7 +1055,7 @@ ldp_sync_fsm_reset_all(void)
 {
 	struct iface		*iface;
 
-	log_debug("DBG_LDP_SYNC: %s: %d: ",
+	debug_evt_ldp_sync("DBG_LDP_SYNC: %s: %d: ",
 		    __func__, __LINE__);
 
 	RB_FOREACH(iface, iface_head, &leconf->iface_tree)

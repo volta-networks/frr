@@ -143,4 +143,6 @@ do {									\
 		log_debug("zebra[out]: " emsg, __VA_ARGS__);		\
 } while (0)
 
+#define		 debug_evt_ldp_sync	debug_evt
+
 #endif /* _LDP_DEBUG_H_ */
