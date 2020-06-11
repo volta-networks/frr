@@ -152,10 +152,11 @@ void ospf_ldp_sync_if_up(struct interface *ifp)
 	 */
 	if (ldp_sync_info &&
 	    ldp_sync_info->enabled == LDP_IGP_SYNC_ENABLED &&
-	    ldp_sync_info->state == LDP_IGP_SYNC_STATE_REQUIRED_NOT_UP) {
+	    ldp_sync_info->state != LDP_IGP_SYNC_STATE_NOT_REQUIRED) {
 		if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
 			zlog_debug("ldp_sync: sync start on if %s state: %s",
 				ifp->name, "Holding down until Sync");
+		ldp_sync_info->state = LDP_IGP_SYNC_STATE_REQUIRED_NOT_UP;
 		ospf_if_recalculate_output_cost(ifp);
 		ospf_ldp_sync_holddown_timer_add(ifp);
 	}
