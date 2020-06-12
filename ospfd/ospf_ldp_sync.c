@@ -112,7 +112,6 @@ void ospf_ldp_sync_if_init(struct ospf_interface *oi)
 	 *  set state
          *  and if ptop interface inform LDP LDP-SYNC is enabled
          */
-
 	if (!(CHECK_FLAG(oi->ospf->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE)))
 		return;
 
@@ -152,11 +151,10 @@ void ospf_ldp_sync_if_up(struct interface *ifp)
 	 */
 	if (ldp_sync_info &&
 	    ldp_sync_info->enabled == LDP_IGP_SYNC_ENABLED &&
-	    ldp_sync_info->state != LDP_IGP_SYNC_STATE_NOT_REQUIRED) {
+	    ldp_sync_info->state == LDP_IGP_SYNC_STATE_REQUIRED_NOT_UP) {
 		if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
 			zlog_debug("ldp_sync: sync start on if %s state: %s",
 				ifp->name, "Holding down until Sync");
-		ldp_sync_info->state = LDP_IGP_SYNC_STATE_REQUIRED_NOT_UP;
 		ospf_if_recalculate_output_cost(ifp);
 		ospf_ldp_sync_holddown_timer_add(ifp);
 	}
@@ -165,14 +163,34 @@ void ospf_ldp_sync_if_up(struct interface *ifp)
 void ospf_ldp_sync_if_down(struct interface *ifp)
 {
 	struct ospf_if_params *params;
+	struct ldp_sync_info *ldp_sync_info;
 
 	params = IF_DEF_PARAMS(ifp);
+	ldp_sync_info = params->ldp_sync_info;
+
+	if (ldp_sync_info == NULL)
+		return;
 
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
-		zlog_debug("ldp_sync: down on if %s",ifp->name);
+		zlog_debug("ldp_sync: down on if %s", ifp->name);
 
 	ldp_sync_if_down(params->ldp_sync_info);
 
+	/* if ptop config is changed interface is brought down/up
+         * send msg to LDP indicating if LDP-SYNC is enabled or disabled
+         * on interface
+	 */
+	if (params->type != OSPF_IFTYPE_POINTOPOINT &&
+	    ldp_sync_info->state != LDP_IGP_SYNC_STATE_NOT_REQUIRED) {
+		/* LDP-SYNC not able to run on non-ptop interface */
+		ospf_ldp_sync_igp_send_msg(ifp, false);
+		ldp_sync_info->state = LDP_IGP_SYNC_STATE_NOT_REQUIRED;
+	} else if (params->type == OSPF_IFTYPE_POINTOPOINT &&
+	           ldp_sync_info->state == LDP_IGP_SYNC_STATE_NOT_REQUIRED) {
+		/* LDP-SYNC is able to run on ptop interface */
+		ospf_ldp_sync_igp_send_msg(ifp, true);
+		ldp_sync_info->state = LDP_IGP_SYNC_STATE_REQUIRED_NOT_UP;
+	}
 }
 
 void ospf_ldp_sync_if_remove(struct interface *ifp)
@@ -292,7 +310,8 @@ void ospf_ldp_sync_if_complete(struct interface *ifp)
 	 * restore interface cost to original value
          */
 	if (ldp_sync_info) {
-		ldp_sync_info->state = LDP_IGP_SYNC_STATE_REQUIRED_UP;
+		if (ldp_sync_info->state == LDP_IGP_SYNC_STATE_REQUIRED_NOT_UP)
+			ldp_sync_info->state = LDP_IGP_SYNC_STATE_REQUIRED_UP;
 		THREAD_TIMER_OFF(ldp_sync_info->t_holddown);
 		ldp_sync_info->t_holddown = NULL;
 		ospf_if_recalculate_output_cost(ifp);
