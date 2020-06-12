@@ -61,6 +61,11 @@ extern void ldp_sync_info_free(struct ldp_sync_info **);
 
 extern void ldp_sync_igp_send_msg(struct interface *ifp, bool state);
 
+struct ldp_igp_sync_if_announce {
+	char name[INTERFACE_NAMSIZ];
+	ifindex_t ifindex;
+};
+
 struct ldp_igp_sync_if_state {
 	char name[INTERFACE_NAMSIZ];
 	ifindex_t ifindex;
