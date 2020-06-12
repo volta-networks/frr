@@ -666,8 +666,14 @@ DEFUN (no_ospf_mpls_ldp_sync,
 	struct vrf *vrf = vrf_lookup_by_id(ospf->vrf_id);
 	struct interface *ifp;
 
+	/* if you delete LDP-SYNC at a gobal level is clears all LDP-SYNC
+	 * configuration, even interface configuration
+         */
 	if (CHECK_FLAG(ospf->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE)) {
 		UNSET_FLAG(ospf->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE);
+		UNSET_FLAG(ospf->ldp_sync_cmd.flags, LDP_SYNC_FLAG_HOLDDOWN);
+		ospf->ldp_sync_cmd.holddown = LDP_IGP_SYNC_HOLDDOWN_DEFAULT;
+
 		/* turn off LDP-IGP Sync on all OSPF interfaces */
 		FOR_ALL_INTERFACES (vrf, ifp)
 			ospf_if_set_ldp_sync_enable(ospf, ifp);
