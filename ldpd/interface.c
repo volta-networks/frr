@@ -150,9 +150,16 @@ if_update_info(struct iface *iface, struct kif *kif)
 	if (ldpd_process == PROC_LDP_ENGINE && iface->operative && !kif->operative)
 		ldp_sync_fsm(iface, LDP_SYNC_EVT_IFACE_SHUTDOWN);
 
+	int old_ifindex = iface->ifindex;
+
 	/* get index and flags */
 	iface->ifindex = kif->ifindex;
 	iface->operative = kif->operative;
+
+	if (ldpd_process == PROC_LDP_ENGINE &&
+	    old_ifindex == 0 &&
+	    old_ifindex != iface->ifindex)
+		ldp_sync_fsm(iface, LDP_SYNC_EVT_IFACE_ANNOUNCE);
 }
 
 struct iface_af *
@@ -607,6 +614,7 @@ const struct {
     {LDP_SYNC_STA_NOT_CONFIG,	LDP_SYNC_EVT_CONFIG_SYNC_ON_LDP_IN_SYNC, LDP_SYNC_ACT_CONFIG_SYNC_ON_LDP_IN_SYNC, LDP_SYNC_STA_REQ_ACH},
     {LDP_SYNC_STA_NOT_CONFIG,	LDP_SYNC_EVT_LDP_SYNC_START, 	LDP_SYNC_ACT_LDP_START_SYNC,	0},
     {LDP_SYNC_STA_NOT_CONFIG,	LDP_SYNC_EVT_LDP_SYNC_COMPLETE, LDP_SYNC_ACT_LDP_COMPLETE_SYNC,	0},
+    {LDP_SYNC_STA_NOT_CONFIG,	LDP_SYNC_EVT_IFACE_ANNOUNCE, 	LDP_SYNC_ACT_IFACE_ANNOUNCE,	0},
     {LDP_SYNC_STA_NOT_CONFIG,	LDP_SYNC_EVT_IFACE_SHUTDOWN, 	LDP_SYNC_ACT_IFACE_SHUTDOWN,	0},
     {LDP_SYNC_STA_NOT_CONFIG,	LDP_SYNC_EVT_SESSION_CLOSE, 	LDP_SYNC_ACT_IFACE_START_SYNC,	0},
     {LDP_SYNC_STA_NOT_CONFIG,	LDP_SYNC_EVT_ADJ_DEL, 		LDP_SYNC_ACT_IFACE_START_SYNC,	0},
@@ -658,6 +666,7 @@ const char * const ldp_sync_event_names[] = {
 	"IFACE SYNC START (ADJ NEW)",
 	"IFACE SYNC START (SESSION CLOSE)",
 	"IFACE SYNC START (CONFIG LDP ON)",
+	"IFACE ANNOUNCE",
 	"IFACE SHUTDOWN",
 	"N/A"
 };
@@ -671,6 +680,7 @@ const char * const ldp_sync_action_names[] = {
 	"CONFIG SYNC ON (LDP IN SYNC)",
 	"CONFIG SYNC OFF",
 	"CONFIG LDP OFF",
+	"IFACE ANNOUNCE",
 	"IFACE SHUTDOWN",
 	"N/A"
 };
@@ -695,8 +705,8 @@ ldp_sync_state_name(int state)
 static int
 send_ldp_sync_announce_msg(struct iface *iface)
 {
-	debug_evt_ldp_sync("DBG_LDP_SYNC: %s: %d: interface %s (ldp in sync %d)",
-		    __func__, __LINE__, iface->name, iface->ldp_sync.ldp_in_sync);
+	debug_evt_ldp_sync("DBG_LDP_SYNC: %s: %d: interface %s, ifindex=%d (ldp in sync %d)",
+		    __func__, __LINE__, iface->name, iface->ifindex, iface->ldp_sync.ldp_in_sync);
 
 	struct ldp_igp_sync_if_announce state;
 
@@ -712,8 +722,8 @@ send_ldp_sync_announce_msg(struct iface *iface)
 static int
 send_ldp_sync_start_msg(struct iface *iface)
 {
-	debug_evt_ldp_sync("DBG_LDP_SYNC: %s: %d: interface %s (ldp in sync %d)",
-		    __func__, __LINE__, iface->name, iface->ldp_sync.ldp_in_sync);
+	debug_evt_ldp_sync("DBG_LDP_SYNC: %s: %d: interface %s, ifindex=%d (ldp in sync %d)",
+		    __func__, __LINE__, iface->name, iface->ifindex, iface->ldp_sync.ldp_in_sync);
 
 	struct ldp_igp_sync_if_state state;
 
@@ -730,8 +740,8 @@ send_ldp_sync_start_msg(struct iface *iface)
 static int
 send_ldp_sync_complete_msg(struct iface *iface)
 {
-	debug_evt_ldp_sync("DBG_LDP_SYNC: %s: %d: interface %s (ldp in sync %d)",
-		    __func__, __LINE__, iface->name, iface->ldp_sync.ldp_in_sync);
+	debug_evt_ldp_sync("DBG_LDP_SYNC: %s: %d: interface %s, ifindex=%d (ldp in sync %d)",
+		    __func__, __LINE__, iface->name, iface->ifindex, iface->ldp_sync.ldp_in_sync);
 
 	struct ldp_igp_sync_if_state state;
 
@@ -833,6 +843,20 @@ ldp_sync_act_config_sync_off(struct iface *iface)
 		    __func__, __LINE__, iface->name, iface->ldp_sync.ldp_in_sync);
 
 	stop_wait_for_ldp_sync_timer(iface);
+
+	return 0;
+}
+
+static int
+ldp_sync_act_iface_announce(struct iface *iface)
+{
+	debug_evt_ldp_sync("DBG_LDP_SYNC: %s: %d: interface %s (ldp in sync %d)",
+		    __func__, __LINE__, iface->name, iface->ldp_sync.ldp_in_sync);
+
+	/* When LDP is configured on an interface, send an announce to IGPs.
+	 * IGPs will reply with the 'mpls ldp-sync' config for the interface.
+	 */
+	send_ldp_sync_announce_msg(iface);
 
 	return 0;
 }
@@ -952,13 +976,6 @@ ldp_sync_fsm_init(struct iface *iface, int state)
 	int old_state = iface->ldp_sync.state;
 	int old_ldp_in_sync = iface->ldp_sync.ldp_in_sync;
 
-	/* When LDP is configured on an interface, send an announce to IGPs.
-	 * IGPs will reply with the 'mpls ldp-sync' config for the interface.
-	 */
-	if (old_state == LDP_SYNC_STA_UNKNOWN &&
-	    state == LDP_SYNC_STA_NOT_CONFIG)
-		send_ldp_sync_announce_msg(iface);
-
 	iface->ldp_sync.state = state;
 	stop_wait_for_ldp_sync_timer(iface);
 	iface->ldp_sync.ldp_in_sync = false;
@@ -1034,6 +1051,9 @@ ldp_sync_fsm(struct iface *iface, enum ldp_sync_event event)
 		break;
 	case LDP_SYNC_ACT_CONFIG_LDP_OFF:
 		ldp_sync_fsm_init(iface, LDP_SYNC_STA_NOT_CONFIG);
+		break;
+	case LDP_SYNC_ACT_IFACE_ANNOUNCE:
+		ldp_sync_act_iface_announce(iface);
 		break;
 	case LDP_SYNC_ACT_IFACE_SHUTDOWN:
 		ldp_sync_fsm_init(iface, iface->ldp_sync.state);
