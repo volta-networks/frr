@@ -121,7 +121,8 @@ adj_del(struct adj *adj, uint32_t notif_status)
 
 	adj_stop_itimer(adj);
 
-	ldp_sync_fsm_helper_adj(adj, LDP_SYNC_EVT_ADJ_DEL);
+	if (nbr)
+		ldp_sync_fsm_helper_nbr(nbr, LDP_SYNC_EVT_ADJ_DEL);
 
 	RB_REMOVE(global_adj_head, &global.adj_tree, adj);
 	if (nbr)

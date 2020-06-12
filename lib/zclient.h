@@ -878,6 +878,8 @@ enum zapi_opaque_registry {
 	LDP_IGP_SYNC_IF_CONFIG_UPDATE = 3,
 	/* Update containing LDP IGP Sync State info */
 	LDP_IGP_SYNC_IF_STATE_UPDATE = 4,
+	/* Announce the LDP interface to request LDP IGP Sync Config */
+	LDP_IGP_SYNC_IF_ANNOUNCE_UPDATE = 5,
 };
 
 /* Send the hello message.

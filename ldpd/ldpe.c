@@ -559,7 +559,7 @@ ldpe_dispatch_main(struct thread *thread)
 			ldpe_check_filter_af(AF_INET6, &leconf->ipv6,
 				laccess->name);
 			break;
-		case IMSG_LDP_IGP_SYNC_IF_CONFIG_UPDATE:
+		case IMSG_LDP_SYNC_IF_CONFIG_UPDATE:
 			if (imsg.hdr.len != IMSG_HEADER_SIZE +
 			    sizeof(struct ldp_igp_sync_if_config)) {
 				log_warnx("%s: wrong imsg len", __func__);
