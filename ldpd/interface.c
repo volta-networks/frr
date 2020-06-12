@@ -1004,9 +1004,10 @@ ldp_sync_fsm(struct iface *iface, enum ldp_sync_event event)
 
 	if (ldp_sync_fsm_tbl[i].state == -1) {
 		/* event outside of the defined fsm, ignore it. */
-		log_warnx("%s: interface %s, event %s not expected in "
-		    "state %s", __func__, iface->name,
-		    ldp_sync_event_names[event], ldp_sync_state_name(old_state));
+		log_warnx("%s: interface %s, event %s (%d) not expected in "
+		    "state %s (%d) ", __func__, iface->name,
+		    ldp_sync_event_names[event], event,
+		    ldp_sync_state_name(old_state), old_state);
 		return (0);
 	}
 
