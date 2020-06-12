@@ -234,7 +234,7 @@ DEFPY  (ldp_wait_for_sync,
         ldp_wait_for_sync_cmd,
         "[no] wait-for-sync [(1-10000)$waitforsync]",
         NO_STR
-        "Configure LDP wait-for-sync interval\n"
+        "Time to wait for LDP-IGP Sync to complete label exchange\n"
         "Time (seconds)\n")
 {
         return (ldp_vty_wait_for_sync_interval(vty, no, waitforsync));
