@@ -175,10 +175,11 @@ void ospf_ldp_sync_if_down(struct interface *ifp)
 
 	ldp_sync_if_down(params->ldp_sync_info);
 
-	/* Interface has gone down from a link down or changing config.
-         * if ptop interface config is changed the interface is brought
-         * down/up so send msg to LDP indicating if LDP-SYNC is enabled
-         * or disabled
+	/* Interface down:
+	 *   can occur from a link down or changing config
+	 *   ospf network type change if is brought down/up
+	 *   send msg to LDP indicating if LDP-SYNC is enabled or disabled
+	 *   restore cost
 	 */
 	switch (ldp_sync_info->state) {
 	case LDP_IGP_SYNC_STATE_REQUIRED_NOT_UP:
@@ -187,6 +188,7 @@ void ospf_ldp_sync_if_down(struct interface *ifp)
 			/* LDP-SYNC not able to run on non-ptop interface */
 			ospf_ldp_sync_igp_send_msg(ifp, false);
 			ldp_sync_info->state = LDP_IGP_SYNC_STATE_NOT_REQUIRED;
+			ospf_if_recalculate_output_cost(ifp);
 		}
 		break;
 	case LDP_IGP_SYNC_STATE_NOT_REQUIRED:
