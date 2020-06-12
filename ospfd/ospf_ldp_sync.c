@@ -84,9 +84,9 @@ int ldp_igp_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 					: "sync-complete",
 					ifp->name);
 			if (state.sync_start)
-				ospf_ldp_sync_if_up(ifp);
+				ospf_ldp_sync_if_sync_start(ifp);
 			else
-				ospf_ldp_sync_if_complete(ifp);
+				ospf_ldp_sync_if_sync_complete(ifp);
 			break;
 		}
 	default:
@@ -127,16 +127,14 @@ void ospf_ldp_sync_if_init(struct ospf_interface *oi)
 	if (!CHECK_FLAG(ldp_sync_info->flags, LDP_SYNC_FLAG_IF_CONFIG))
 		ldp_sync_info->enabled = LDP_IGP_SYNC_ENABLED;
 
-	if (ldp_sync_info->enabled != LDP_IGP_SYNC_ENABLED)
-		return;
-
-	if (params->type == OSPF_IFTYPE_POINTOPOINT) {
+	if (params->type == OSPF_IFTYPE_POINTOPOINT &&
+	    ldp_sync_info->enabled == LDP_IGP_SYNC_ENABLED) {
 		ldp_sync_info->state = LDP_IGP_SYNC_STATE_REQUIRED_NOT_UP;
 			ospf_ldp_sync_igp_send_msg(oi->ifp, true);
 	}
 }
 
-void ospf_ldp_sync_if_up(struct interface *ifp)
+void ospf_ldp_sync_if_sync_start(struct interface *ifp)
 {
 	struct ospf_if_params *params;
 	struct ldp_sync_info *ldp_sync_info;
@@ -176,20 +174,30 @@ void ospf_ldp_sync_if_down(struct interface *ifp)
 
 	ldp_sync_if_down(params->ldp_sync_info);
 
-	/* if ptop config is changed interface is brought down/up
-         * send msg to LDP indicating if LDP-SYNC is enabled or disabled
-         * on interface
+	/* Interface has gone down from a link down or changing config.
+         * if ptop interface config is changed the interface is brought
+         * down/up so send msg to LDP indicating if LDP-SYNC is enabled
+         * or disabled
 	 */
-	if (params->type != OSPF_IFTYPE_POINTOPOINT &&
-	    ldp_sync_info->state != LDP_IGP_SYNC_STATE_NOT_REQUIRED) {
-		/* LDP-SYNC not able to run on non-ptop interface */
-		ospf_ldp_sync_igp_send_msg(ifp, false);
-		ldp_sync_info->state = LDP_IGP_SYNC_STATE_NOT_REQUIRED;
-	} else if (params->type == OSPF_IFTYPE_POINTOPOINT &&
-	           ldp_sync_info->state == LDP_IGP_SYNC_STATE_NOT_REQUIRED) {
-		/* LDP-SYNC is able to run on ptop interface */
-		ospf_ldp_sync_igp_send_msg(ifp, true);
-		ldp_sync_info->state = LDP_IGP_SYNC_STATE_REQUIRED_NOT_UP;
+	switch (ldp_sync_info->state) {
+	case LDP_IGP_SYNC_STATE_REQUIRED_NOT_UP:
+	case LDP_IGP_SYNC_STATE_REQUIRED_UP:
+		if (params->type != OSPF_IFTYPE_POINTOPOINT) {
+			/* LDP-SYNC not able to run on non-ptop interface */
+			ospf_ldp_sync_igp_send_msg(ifp, false);
+			ldp_sync_info->state = LDP_IGP_SYNC_STATE_NOT_REQUIRED;
+		}
+		break;
+	case LDP_IGP_SYNC_STATE_NOT_REQUIRED:
+		if (params->type == OSPF_IFTYPE_POINTOPOINT) {
+			/* LDP-SYNC is able to run on ptop interface */
+			ospf_ldp_sync_igp_send_msg(ifp, true);
+			ldp_sync_info->state =
+				LDP_IGP_SYNC_STATE_REQUIRED_NOT_UP;
+		}
+		break;
+	default:
+		break;
 	}
 }
 
@@ -228,7 +236,7 @@ static int ospf_ldp_sync_ism_change(struct ospf_interface *oi, int state,
 	case ISM_PointToPoint:
 		if (oi->type == OSPF_IFTYPE_POINTOPOINT)
 			/* If LDP-SYNC is configure on interface then start */
-			ospf_ldp_sync_if_up(oi->ifp);
+			ospf_ldp_sync_if_sync_start(oi->ifp);
 		break;
 	case ISM_Down:
 		/* If LDP-SYNC is configure on this interface then stop it */
@@ -258,6 +266,10 @@ static int ospf_ldp_sync_holddown_timer(struct thread *thread)
 	struct ospf_if_params *params;
 	struct ldp_sync_info *ldp_sync_info;
 
+	/* holddown timer expired:
+         *  didn't receive msg from LDP indicating sync-complete
+         *  restore interface cost to original value
+	 */
 	ifp = THREAD_ARG(thread);
 	params = IF_DEF_PARAMS(ifp);
 	ldp_sync_info = params->ldp_sync_info;
@@ -269,7 +281,6 @@ static int ospf_ldp_sync_holddown_timer(struct thread *thread)
 		zlog_debug("ldp_sync: holddown timer expired for %s state: %s",
 			   ifp->name, "Sync achieved");
 
-	/* restore interface cost to original value */
 	ospf_if_recalculate_output_cost(ifp);
 	return 0;
 }
@@ -281,7 +292,12 @@ void ospf_ldp_sync_holddown_timer_add(struct interface *ifp)
 
 	params = IF_DEF_PARAMS(ifp);
 	ldp_sync_info = params->ldp_sync_info;
-	/* if timer is already running or holddown time is off just return */
+
+	/* Start holddown timer:
+         *  this timer is used to keep interface cost at LSInfinity
+         *  once expires returns cost to original value
+	 *  if timer is already running or holddown time is off just return
+         */
 	if (ldp_sync_info->t_holddown ||
 	    ldp_sync_info->holddown == LDP_IGP_SYNC_HOLDDOWN_DEFAULT)
 		return;
@@ -296,7 +312,7 @@ void ospf_ldp_sync_holddown_timer_add(struct interface *ifp)
 			 &ldp_sync_info->t_holddown);
 }
 
-void ospf_ldp_sync_if_complete(struct interface *ifp)
+void ospf_ldp_sync_if_sync_complete(struct interface *ifp)
 {
 	struct ospf_if_params *params;
 	struct ldp_sync_info *ldp_sync_info;
@@ -304,10 +320,10 @@ void ospf_ldp_sync_if_complete(struct interface *ifp)
 	params = IF_DEF_PARAMS(ifp);
 	ldp_sync_info = params->ldp_sync_info;
 
-	/* received sync-complete from LDP
-         * set state to up
-	 * stop timer
-	 * restore interface cost to original value
+	/* received sync-complete from LDP:
+         *  set state to up
+	 *  stop timer
+	 *  restore interface cost to original value
          */
 	if (ldp_sync_info) {
 		if (ldp_sync_info->state == LDP_IGP_SYNC_STATE_REQUIRED_NOT_UP)
@@ -327,7 +343,10 @@ void ospf_if_set_ldp_sync_enable(struct ospf *ospf, struct interface *ifp)
 	struct ospf_if_params *params;
 	struct ldp_sync_info *ldp_sync_info;
 
-	/* called when setting LDP-SYNC at the global level */
+	/* called when setting LDP-SYNC at the global level:
+         *  specifed on interface overrides global config
+         *  if ptop link send msg to LDP indicating ldp-sync enabled
+         */
 	params = IF_DEF_PARAMS(ifp);
 	if (CHECK_FLAG(ospf->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE)) {
 		if (params->ldp_sync_info == NULL)
@@ -355,14 +374,9 @@ void ospf_if_set_ldp_sync_enable(struct ospf *ospf, struct interface *ifp)
 				   ifp->name);
 		}
 	} else {
-		/* delete LDP sync unless enabled on interface */
-		ldp_sync_info = params->ldp_sync_info;
-		if (ldp_sync_info == NULL ||
-		    (CHECK_FLAG(ldp_sync_info->flags, LDP_SYNC_FLAG_IF_CONFIG)
-		    && ldp_sync_info->enabled == LDP_IGP_SYNC_ENABLED))
-			return;
-
-		ospf_ldp_sync_if_remove(ifp);
+		/* delete LDP sync even if configured on an interface */
+		if (params->ldp_sync_info)
+			ospf_ldp_sync_if_remove(ifp);
 	}
 }
 
@@ -371,12 +385,15 @@ void ospf_if_set_ldp_sync_holddown(struct ospf *ospf, struct interface *ifp)
 	struct ospf_if_params *params;
 	struct ldp_sync_info *ldp_sync_info;
 
+	/* called when setting LDP-SYNC at the global level:
+	 *  specifed on interface overrides global config.
+	 */
 	params = IF_DEF_PARAMS(ifp);
 	if (params->ldp_sync_info == NULL)
 		params->ldp_sync_info = ldp_sync_info_create();
 	ldp_sync_info = params->ldp_sync_info;
 
-	/* specifed on interface overrides global config. */
+	/* config on interface, overrides global config. */
 	if (CHECK_FLAG(ldp_sync_info->flags, LDP_SYNC_FLAG_HOLDDOWN))
 		return;
 	if (CHECK_FLAG(ospf->ldp_sync_cmd.flags, LDP_SYNC_FLAG_HOLDDOWN))
