@@ -151,7 +151,7 @@ void ospf_ldp_sync_if_sync_start(struct interface *ifp)
 	    ldp_sync_info->enabled == LDP_IGP_SYNC_ENABLED &&
 	    ldp_sync_info->state != LDP_IGP_SYNC_STATE_NOT_REQUIRED) {
 		if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
-			zlog_debug("ldp_sync: sync start on if %s state: %s",
+			zlog_debug("ldp_sync: start on if %s state: %s",
 				ifp->name, "Holding down until Sync");
 		ldp_sync_info->state = LDP_IGP_SYNC_STATE_REQUIRED_NOT_UP;
 		ospf_if_recalculate_output_cost(ifp);
@@ -167,13 +167,11 @@ void ospf_ldp_sync_if_down(struct interface *ifp)
 	params = IF_DEF_PARAMS(ifp);
 	ldp_sync_info = params->ldp_sync_info;
 
-	if (ldp_sync_info == NULL)
+	if (ldp_sync_if_down(params->ldp_sync_info) == false)
 		return;
 
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
 		zlog_debug("ldp_sync: down on if %s", ifp->name);
-
-	ldp_sync_if_down(params->ldp_sync_info);
 
 	/* Interface down:
 	 *   can occur from a link down or changing config
