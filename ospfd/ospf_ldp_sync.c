@@ -66,8 +66,11 @@ int ldp_igp_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 {
 	uint32_t type;
 	struct ldp_igp_sync_if_state state;
+	struct ldp_igp_sync_if_announce announce;
 	struct stream *s;
 	struct interface *ifp;
+	struct ospf_if_params *params;
+	struct ldp_sync_info *ldp_sync_info;
 
 	s = zclient->ibuf;
 	STREAM_GETL(s, type);
@@ -76,19 +79,36 @@ int ldp_igp_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 	case LDP_IGP_SYNC_IF_STATE_UPDATE:
                 STREAM_GET(&state, s, sizeof(state));
 		ifp = if_lookup_by_index(state.ifindex, VRF_DEFAULT);
-		if (ifp) {
-			if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
-				zlog_debug("ldp_sync: rcvd %s from LDP if %s",
-					state.sync_start
-					? "sync-start"
-					: "sync-complete",
-					ifp->name);
-			if (state.sync_start)
-				ospf_ldp_sync_if_sync_start(ifp);
-			else
-				ospf_ldp_sync_if_sync_complete(ifp);
-			break;
-		}
+		if (ifp == NULL)
+			return 0;
+
+		if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
+			zlog_debug("ldp_sync: rcvd %s from LDP if %s",
+				   state.sync_start
+				   ? "sync-start"
+				   : "sync-complete",
+				   ifp->name);
+		if (state.sync_start)
+			ospf_ldp_sync_if_sync_start(ifp);
+		else
+			ospf_ldp_sync_if_sync_complete(ifp);
+		break;
+	case LDP_IGP_SYNC_IF_ANNOUNCE_UPDATE:
+		STREAM_GET(&announce, s, sizeof(announce));
+		ifp = if_lookup_by_index(state.ifindex, VRF_DEFAULT);
+		if (ifp)
+			return 0;
+
+		if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
+			zlog_debug("ldp_sync: rcvd announce req from LDP if %s",
+				   ifp->name);
+		params = IF_DEF_PARAMS(ifp);
+		ldp_sync_info = params->ldp_sync_info;
+		if (ldp_sync_info &&
+		    ldp_sync_info->enabled == LDP_IGP_SYNC_ENABLED &&
+		    ldp_sync_info->state != LDP_IGP_SYNC_STATE_NOT_REQUIRED)
+			ospf_ldp_sync_igp_send_msg(ifp, true);
+		break;
 	default:
 		break;
 	}
