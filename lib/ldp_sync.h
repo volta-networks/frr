@@ -73,6 +73,7 @@ struct ldp_igp_sync_if_state {
 };
 
 struct ldp_igp_sync_if_config {
+	int proto;
 	char name[INTERFACE_NAMSIZ];
 	ifindex_t ifindex;
 	bool sync_configured;
