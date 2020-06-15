@@ -95,7 +95,7 @@ int ldp_igp_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 		break;
 	case LDP_IGP_SYNC_IF_ANNOUNCE_UPDATE:
 		STREAM_GET(&announce, s, sizeof(announce));
-		ifp = if_lookup_by_index(state.ifindex, VRF_DEFAULT);
+		ifp = if_lookup_by_index(announce.ifindex, VRF_DEFAULT);
 		if (ifp)
 			return 0;
 
@@ -275,7 +275,7 @@ void ospf_ldp_sync_igp_send_msg(struct interface *ifp, bool state)
 		zlog_debug("ldp_sync: send %s to LDP if %s",
 			state ? "enable" : "disable", ifp->name);
 
-	ldp_sync_igp_send_msg(ifp, state);
+	ldp_sync_igp_send_msg(ifp, state, ZEBRA_ROUTE_OSPF);
 }
 
 /*
