@@ -96,7 +96,7 @@ int ldp_igp_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 	case LDP_IGP_SYNC_IF_ANNOUNCE_UPDATE:
 		STREAM_GET(&announce, s, sizeof(announce));
 		ifp = if_lookup_by_index(announce.ifindex, VRF_DEFAULT);
-		if (ifp)
+		if (ifp == NULL)
 			return 0;
 
 		if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))

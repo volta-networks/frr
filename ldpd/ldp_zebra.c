@@ -128,7 +128,7 @@ int ldp_sync_send_announce_update(struct ldp_igp_sync_if_announce *announce)
 	debug_evt_ldp_sync("LDP_DBG_SYNC: %s: name=%s, ifindex=%d",
 		__func__, announce->name, announce->ifindex);
 
-        return zclient_send_opaque(zclient, LDP_IGP_SYNC_IF_STATE_UPDATE,
+        return zclient_send_opaque(zclient, LDP_IGP_SYNC_IF_ANNOUNCE_UPDATE,
 		(const uint8_t *) announce, sizeof(*announce));
 }
 
