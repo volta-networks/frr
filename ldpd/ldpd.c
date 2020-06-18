@@ -589,8 +589,10 @@ main_dispatch_ldpe(struct thread *thread)
 			    sizeof(struct ldp_igp_sync_if_state))
 				fatalx("IMSG_LDP_SYNC_IF_STATE_UPDATE imsg with wrong len");
 
-			ldp_sync_send_state_update((struct ldp_igp_sync_if_state *)imsg.data);
+			ldp_sync_zebra_send_state_update((struct ldp_igp_sync_if_state *)imsg.data);
 			break;
+#if 0
+// REMOTE ME
 		case IMSG_LDP_SYNC_IF_ANNOUNCE_UPDATE:
 			if (imsg.hdr.len != IMSG_HEADER_SIZE +
 			    sizeof(struct ldp_igp_sync_if_announce))
@@ -598,6 +600,7 @@ main_dispatch_ldpe(struct thread *thread)
 
 			ldp_sync_send_announce_update((struct ldp_igp_sync_if_announce *)imsg.data);
 			break;
+#endif
 		default:
 			log_debug("%s: error handling imsg %d", __func__,
 			    imsg.hdr.type);

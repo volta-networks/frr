@@ -235,7 +235,7 @@ struct ctl_iface *if_to_ctl(struct iface_af *);
 in_addr_t	 if_get_ipv4_addr(struct iface *);
 int		 ldp_sync_fsm_helper_adj(struct adj *, enum ldp_sync_event);
 int		 ldp_sync_fsm_helper_nbr(struct nbr *, enum ldp_sync_event);
-int		 ldp_sync_fsm_helper_ifconfig(struct ldp_igp_sync_if_config *);
+int		 ldp_sync_fsm_helper_state_req(struct ldp_igp_sync_if_state_req *);
 int		 ldp_sync_fsm(struct iface *, enum ldp_sync_event);
 void		 ldp_sync_fsm_reset_all(void);
 const char      *ldp_sync_state_name(int);
