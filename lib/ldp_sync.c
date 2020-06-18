@@ -99,15 +99,14 @@ bool ldp_sync_if_down(struct ldp_sync_info *ldp_sync_info)
 
 struct zclient  *zclient;
 
-void ldp_sync_igp_send_msg(struct interface *ifp, bool state, int proto)
+void ldp_sync_state_req_msg(struct interface *ifp, int proto)
 {
-	struct ldp_igp_sync_if_config if_config;
+	struct ldp_igp_sync_if_state_req request;
 
-	strlcpy(if_config.name, ifp->name, sizeof(ifp->name));
-	if_config.proto = proto;
-	if_config.ifindex = ifp->ifindex;
-	if_config.sync_configured = state;
+	strlcpy(request.name, ifp->name, sizeof(ifp->name));
+	request.proto = proto;
+	request.ifindex = ifp->ifindex;
 
-	zclient_send_opaque(zclient, LDP_IGP_SYNC_IF_CONFIG_UPDATE,
-		(uint8_t *)&if_config, sizeof(if_config));
+	zclient_send_opaque(zclient, LDP_IGP_SYNC_IF_STATE_REQUEST,
+		(uint8_t *)&request, sizeof(request));
 }

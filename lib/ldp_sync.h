@@ -59,11 +59,10 @@ extern bool ldp_sync_if_is_enabled(struct ldp_sync_info *);
 extern bool ldp_sync_if_down(struct ldp_sync_info *);
 extern void ldp_sync_info_free(struct ldp_sync_info **);
 
-extern void ldp_sync_igp_send_msg(struct interface *ifp, bool state, int proto);
+extern void ldp_sync_state_req_msg(struct interface *ifp, int proto);
 
-struct ldp_igp_sync_if_announce {
-	char name[INTERFACE_NAMSIZ];
-	ifindex_t ifindex;
+struct ldp_igp_sync_announce {
+	int proto;
 };
 
 struct ldp_igp_sync_if_state {
@@ -72,11 +71,14 @@ struct ldp_igp_sync_if_state {
 	bool sync_start;
 };
 
-struct ldp_igp_sync_if_config {
+struct ldp_igp_sync_if_state_req {
 	int proto;
 	char name[INTERFACE_NAMSIZ];
 	ifindex_t ifindex;
-	bool sync_configured;
+};
+
+struct ldp_igp_sync_hello {
+	int proto;
 };
 
 #ifdef __cplusplus
