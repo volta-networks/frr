@@ -1723,7 +1723,8 @@ static void ospf_zebra_connected(struct zclient *zclient)
 
 	/* register with opaque client to recv LDP-IGP Sync msgs */
 	zclient_register_opaque(zclient, LDP_IGP_SYNC_IF_STATE_UPDATE);
-	zclient_register_opaque(zclient, LDP_IGP_SYNC_IF_ANNOUNCE_UPDATE);
+	zclient_register_opaque(zclient, LDP_IGP_SYNC_ANNOUNCE_UPDATE);
+	zclient_register_opaque(zclient, LDP_IGP_SYNC_HELLO_UPDATE);
 }
 
 
