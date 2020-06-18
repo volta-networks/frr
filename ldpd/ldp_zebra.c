@@ -47,6 +47,14 @@ static int	 ldp_zebra_read_pw_status_update(ZAPI_CALLBACK_ARGS);
 static void	 ldp_zebra_connected(struct zclient *);
 static void	 ldp_zebra_filter_update(struct access_list *access);
 
+static void 	ldp_zebra_opaque_register(void);
+static void 	ldp_zebra_opaque_unregister(void);
+static int 	ldp_sync_zebra_send_announce(void);
+static int 	ldp_zebra_opaque_msg_handler(ZAPI_CALLBACK_ARGS);
+static void 	ldp_sync_zebra_start_hello_timer(void);
+static int 	ldp_sync_zebra_hello(struct thread *thread);
+static void 	ldp_sync_zebra_init(void);
+
 static struct zclient	*zclient;
 
 static void
@@ -104,17 +112,20 @@ pw2zpw(struct l2vpn_pw *pw, struct zapi_pw *zpw)
 	    sizeof(zpw->data.ldp.vpn_name));
 }
 
-static void ldp_zebra_opaque_register(void)
+static void
+ldp_zebra_opaque_register(void)
 {
 	zclient_register_opaque(zclient, LDP_IGP_SYNC_IF_STATE_REQUEST);
 }
 
-static void ldp_zebra_opaque_unregister(void)
+static void
+ldp_zebra_opaque_unregister(void)
 {
 	zclient_unregister_opaque(zclient, LDP_IGP_SYNC_IF_STATE_REQUEST);
 }
 
-int ldp_sync_zebra_send_state_update(struct ldp_igp_sync_if_state *state)
+int
+ldp_sync_zebra_send_state_update(struct ldp_igp_sync_if_state *state)
 {
 	debug_evt_ldp_sync("%s: name=%s, ifindex=%d, sync_start=%d",
 		__func__, state->name, state->ifindex, state->sync_start);
@@ -123,7 +134,8 @@ int ldp_sync_zebra_send_state_update(struct ldp_igp_sync_if_state *state)
 		(const uint8_t *) state, sizeof(*state));
 }
 
-static int ldp_sync_zebra_send_announce()
+static int
+ldp_sync_zebra_send_announce(void)
 {
 	struct ldp_igp_sync_announce announce;
 	announce.proto = ZEBRA_ROUTE_LDP;
@@ -132,7 +144,8 @@ static int ldp_sync_zebra_send_announce()
 		(const uint8_t *) &announce, sizeof(announce));
 }
 
-static int ldp_zebra_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
+static int
+ldp_zebra_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 {
 	uint32_t type;
 	struct ldp_igp_sync_if_state_req state_req;
@@ -157,29 +170,40 @@ stream_failure:
         return 0;
 }
 
-static int ldp_sync_zebra_hello(struct thread *thread)
+static void
+ldp_sync_zebra_start_hello_timer(void)
 {
-	struct ldp_igp_sync_hello hello;
-	hello.proto = ZEBRA_ROUTE_LDP;
-
-	debug_evt_ldp_sync("%s: ", __func__); // TODO REMOVE THIS LOG
-
-        return zclient_send_opaque(zclient, LDP_IGP_SYNC_HELLO_UPDATE,
-		(const uint8_t *) &hello, sizeof(hello));
-
-        return 0;
-}
-
-
-static void ldp_sync_zebra_init(void)
-{
-	ldp_sync_zebra_send_announce();
-
 	// TODO should we ever stop heartbeat timer?
 	thread_add_timer(master, ldp_sync_zebra_hello, NULL, 1, NULL);
 
 // TODO REPLACE thread_add_timer with: thread_add_timer_ms() and thread_add_timer_tv() also...
+}
 
+static int
+ldp_sync_zebra_hello(struct thread *thread)
+{
+	static unsigned int sequence = 0;
+	struct ldp_igp_sync_hello hello;
+
+	sequence++;
+
+	hello.proto = ZEBRA_ROUTE_LDP;
+	hello.sequence = sequence;
+
+        zclient_send_opaque(zclient, LDP_IGP_SYNC_HELLO_UPDATE,
+		(const uint8_t *) &hello, sizeof(hello));
+
+	ldp_sync_zebra_start_hello_timer();
+
+        return (0);
+}
+
+static void
+ldp_sync_zebra_init(void)
+{
+	ldp_sync_zebra_send_announce();
+
+	ldp_sync_zebra_start_hello_timer();
 }
 
 

@@ -79,6 +79,7 @@ struct ldp_igp_sync_if_state_req {
 
 struct ldp_igp_sync_hello {
 	int proto;
+	unsigned int sequence;
 };
 
 #ifdef __cplusplus
