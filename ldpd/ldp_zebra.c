@@ -106,15 +106,15 @@ pw2zpw(struct l2vpn_pw *pw, struct zapi_pw *zpw)
 
 static void ldp_zebra_opaque_register(void)
 {
-	zclient_register_opaque(zclient, LDP_IGP_SYNC_IF_CONFIG_UPDATE);
+	zclient_register_opaque(zclient, LDP_IGP_SYNC_IF_STATE_REQUEST);
 }
 
 static void ldp_zebra_opaque_unregister(void)
 {
-	zclient_unregister_opaque(zclient, LDP_IGP_SYNC_IF_CONFIG_UPDATE);
+	zclient_unregister_opaque(zclient, LDP_IGP_SYNC_IF_STATE_REQUEST);
 }
 
-int ldp_sync_send_state_update(struct ldp_igp_sync_if_state *state)
+int ldp_sync_zebra_send_state_update(struct ldp_igp_sync_if_state *state)
 {
 	debug_evt_ldp_sync("%s: name=%s, ifindex=%d, sync_start=%d",
 		__func__, state->name, state->ifindex, state->sync_start);
@@ -123,19 +123,19 @@ int ldp_sync_send_state_update(struct ldp_igp_sync_if_state *state)
 		(const uint8_t *) state, sizeof(*state));
 }
 
-int ldp_sync_send_announce_update(struct ldp_igp_sync_if_announce *announce)
+static int ldp_sync_zebra_send_announce()
 {
-	debug_evt_ldp_sync("%s: name=%s, ifindex=%d",
-		__func__, announce->name, announce->ifindex);
+	struct ldp_igp_sync_announce announce;
+	announce.proto = ZEBRA_ROUTE_LDP;
 
-        return zclient_send_opaque(zclient, LDP_IGP_SYNC_IF_ANNOUNCE_UPDATE,
-		(const uint8_t *) announce, sizeof(*announce));
+        return zclient_send_opaque(zclient, LDP_IGP_SYNC_ANNOUNCE_UPDATE,
+		(const uint8_t *) &announce, sizeof(announce));
 }
 
 static int ldp_zebra_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 {
 	uint32_t type;
-	struct ldp_igp_sync_if_config config;
+	struct ldp_igp_sync_if_state_req state_req;
 	struct stream *s;
 
 	s = zclient->ibuf;
@@ -143,10 +143,10 @@ static int ldp_zebra_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 	STREAM_GETL(s, type);
 
 	switch (type) {
-	case LDP_IGP_SYNC_IF_CONFIG_UPDATE:
-                STREAM_GET(&config, s, sizeof(config));
-		main_imsg_compose_ldpe(IMSG_LDP_SYNC_IF_CONFIG_UPDATE, 0, &config,
-			    sizeof(config));
+	case LDP_IGP_SYNC_IF_STATE_REQUEST:
+                STREAM_GET(&state_req, s, sizeof(state_req));
+		main_imsg_compose_ldpe(IMSG_LDP_SYNC_IF_STATE_REQUEST, 0, &state_req,
+			    sizeof(state_req));
 		break;
 	default:
 		break;
@@ -156,6 +156,32 @@ stream_failure:
 
         return 0;
 }
+
+static int ldp_sync_zebra_hello(struct thread *thread)
+{
+	struct ldp_igp_sync_hello hello;
+	hello.proto = ZEBRA_ROUTE_LDP;
+
+	debug_evt_ldp_sync("%s: ", __func__); // TODO REMOVE THIS LOG
+
+        return zclient_send_opaque(zclient, LDP_IGP_SYNC_HELLO_UPDATE,
+		(const uint8_t *) &hello, sizeof(hello));
+
+        return 0;
+}
+
+
+static void ldp_sync_zebra_init(void)
+{
+	ldp_sync_zebra_send_announce();
+
+	// TODO should we ever stop heartbeat timer?
+	thread_add_timer(master, ldp_sync_zebra_hello, NULL, 1, NULL);
+
+// TODO REPLACE thread_add_timer with: thread_add_timer_ms() and thread_add_timer_tv() also...
+
+}
+
 
 static int
 ldp_zebra_send_mpls_labels(int cmd, struct kroute *kr)
@@ -581,6 +607,8 @@ ldp_zebra_connected(struct zclient *zclient)
 	    ZEBRA_ROUTE_ALL, 0, VRF_DEFAULT);
 
 	ldp_zebra_opaque_register();
+
+	ldp_sync_zebra_init();
 }
 
 static void

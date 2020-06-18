@@ -155,9 +155,8 @@ enum imsg_type {
 	IMSG_PW_UPDATE,
 	IMSG_FILTER_UPDATE,
 	IMSG_NBR_SHUTDOWN,
-	IMSG_LDP_SYNC_IF_CONFIG_UPDATE,
-	IMSG_LDP_SYNC_IF_STATE_UPDATE,
-	IMSG_LDP_SYNC_IF_ANNOUNCE_UPDATE,
+	IMSG_LDP_SYNC_IF_STATE_REQUEST,
+	IMSG_LDP_SYNC_IF_STATE_UPDATE
 };
 
 struct ldpd_init {
@@ -233,19 +232,14 @@ enum nbr_action {
 
 /* LDP IGP Sync states */
 #define	LDP_SYNC_STA_UNKNOWN		0x0000
-#define	LDP_SYNC_STA_NOT_CONFIG		0x0001
-#define	LDP_SYNC_STA_NOT_REQ 		0x0002
-#define	LDP_SYNC_STA_REQ_NOT_ACH 	0x0004
-#define	LDP_SYNC_STA_REQ_ACH		0x0008
+#define	LDP_SYNC_STA_REQ_NOT_ACH 	0x0001
+#define	LDP_SYNC_STA_REQ_ACH		0x0002
 
 /* LDP IGP Sync events */
 enum ldp_sync_event {
 	LDP_SYNC_EVT_NOTHING,
 	LDP_SYNC_EVT_LDP_SYNC_START,
 	LDP_SYNC_EVT_LDP_SYNC_COMPLETE,
-	LDP_SYNC_EVT_CONFIG_SYNC_ON,
-	LDP_SYNC_EVT_CONFIG_SYNC_ON_LDP_IN_SYNC,
-	LDP_SYNC_EVT_CONFIG_SYNC_OFF,
 	LDP_SYNC_EVT_CONFIG_LDP_OFF,
 	LDP_SYNC_EVT_ADJ_DEL,
 	LDP_SYNC_EVT_ADJ_NEW,
@@ -262,9 +256,6 @@ enum ldp_sync_action {
 	LDP_SYNC_ACT_IFACE_START_SYNC,
 	LDP_SYNC_ACT_LDP_START_SYNC,
 	LDP_SYNC_ACT_LDP_COMPLETE_SYNC,
-	LDP_SYNC_ACT_CONFIG_SYNC_ON,
-	LDP_SYNC_ACT_CONFIG_SYNC_ON_LDP_IN_SYNC,
-	LDP_SYNC_ACT_CONFIG_SYNC_OFF,
 	LDP_SYNC_ACT_CONFIG_LDP_OFF,
 	LDP_SYNC_ACT_IFACE_ANNOUNCE,
 	LDP_SYNC_ACT_IFACE_SHUTDOWN
@@ -355,7 +346,6 @@ struct iface_af {
 
 struct iface_ldp_sync {
 	int			 state;
-	bool			 ldp_in_sync;
 	struct thread           *wait_for_ldp_sync_timer;
 };
 
@@ -876,8 +866,7 @@ extern char			 ctl_sock_path[MAXPATHLEN];
 /* ldp_zebra.c */
 void		 ldp_zebra_init(struct thread_master *);
 void		 ldp_zebra_destroy(void);
-int		 ldp_sync_send_state_update(struct ldp_igp_sync_if_state *);
-int		 ldp_sync_send_announce_update(struct ldp_igp_sync_if_announce *);
+int		 ldp_sync_zebra_send_state_update(struct ldp_igp_sync_if_state *);
 
 
 /* compatibility */
