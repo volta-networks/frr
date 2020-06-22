@@ -663,12 +663,12 @@ void ospf_ldp_sync_if_write_config(struct vty *vty,
 
 	if (CHECK_FLAG(ldp_sync_info->flags, LDP_SYNC_FLAG_IF_CONFIG)) {
 		if (ldp_sync_info->enabled == LDP_IGP_SYNC_ENABLED)
-			vty_out(vty, " mpls ldp-sync\n");
+			vty_out(vty, " ip ospf mpls ldp-sync\n");
 		else
-			vty_out(vty, " no mpls ldp-sync\n");
+			vty_out(vty, " no ip ospf mpls ldp-sync\n");
 	}
 	if (CHECK_FLAG(ldp_sync_info->flags, LDP_SYNC_FLAG_HOLDDOWN))
-		vty_out(vty, " mpls ldp-sync holddown %u\n",
+		vty_out(vty, " ip ospf mpls ldp-sync holddown %u\n",
 			ldp_sync_info->holddown);
 }
 
