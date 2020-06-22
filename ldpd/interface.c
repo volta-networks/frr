@@ -838,7 +838,7 @@ ldp_sync_fsm_helper_state_req(struct ldp_igp_sync_if_state_req *state_req)
 		return send_ldp_sync_state_update_msg(state_req->name, state_req->ifindex, false);
 	}
 
-	return send_ldp_sync_state_update_msg(state_req->name, state_req->ifindex, 
+	return send_ldp_sync_state_update_msg(state_req->name, state_req->ifindex,
 		(iface->ldp_sync.state != LDP_SYNC_STA_REQ_ACH));
 }
 
@@ -854,6 +854,9 @@ ldp_sync_fsm_init(struct iface *iface, int state)
 
 	iface->ldp_sync.state = state;
 	stop_wait_for_ldp_sync_timer(iface);
+
+	send_ldp_sync_state_update_msg(iface->name, iface->ifindex,
+		(iface->ldp_sync.state != LDP_SYNC_STA_REQ_ACH));
 
 	if (verbose || old_state != iface->ldp_sync.state)
 	{
