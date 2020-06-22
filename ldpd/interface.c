@@ -710,10 +710,11 @@ send_ldp_sync_state_update_msg(char *name, int ifindex, int sync_start)
 	state.ifindex = ifindex;
 	state.sync_start = sync_start;
 
+        debug_evt_ldp_sync("%s: name=%s, ifindex=%d, sync_start=%d",
+                __func__, state.name, state.ifindex, state.sync_start);
+
 	return ldpe_imsg_compose_parent(IMSG_LDP_SYNC_IF_STATE_UPDATE, getpid(),
 		&state, sizeof(state));
-
-	return 0;
 }
 
 static int
@@ -727,6 +728,9 @@ send_ldp_sync_start_msg(struct iface *iface)
 	strlcpy(state.name, iface->name, sizeof(state.name));
 	state.ifindex = iface->ifindex;
 	state.sync_start = true;
+
+        debug_evt_ldp_sync("%s: name=%s, ifindex=%d, sync_start=%d",
+                __func__, state.name, state.ifindex, state.sync_start);
 
 	return ldpe_imsg_compose_parent(IMSG_LDP_SYNC_IF_STATE_UPDATE, getpid(),
 		&state, sizeof(state));
@@ -745,6 +749,9 @@ send_ldp_sync_complete_msg(struct iface *iface)
 	strlcpy(state.name, iface->name, sizeof(state.name));
 	state.ifindex = iface->ifindex;
 	state.sync_start = false;
+
+        debug_evt_ldp_sync("%s: name=%s, ifindex=%d, sync_start=%d",
+                __func__, state.name, state.ifindex, state.sync_start);
 
 	return ldpe_imsg_compose_parent(IMSG_LDP_SYNC_IF_STATE_UPDATE, getpid(),
 		&state, sizeof(state));
@@ -894,10 +901,13 @@ ldp_sync_fsm_helper_state_req(struct ldp_igp_sync_if_state_req *state_req)
 // TODO: From Mark: the library 'if' module should have all the right kinds of access - take a look at lib/if.h ? it looks like there's access by ifindex (and vrf).
 
 	if (!iface)
+	{
+		debug_evt_ldp_sync("%s: Warning: failed to lookup interface %s (%d) ", __func__, state_req->name, state_req->ifindex);
 		return send_ldp_sync_state_update_msg(state_req->name, state_req->ifindex, false);
+	}
 
 	return send_ldp_sync_state_update_msg(state_req->name, state_req->ifindex, 
-		(iface->ldp_sync.state == LDP_SYNC_STA_REQ_ACH));
+		(iface->ldp_sync.state != LDP_SYNC_STA_REQ_ACH));
 }
 
 static int
