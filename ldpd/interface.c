@@ -42,9 +42,6 @@ static int		 if_join_ipv6_group(struct iface *, struct in6_addr *);
 static int		 if_leave_ipv6_group(struct iface *, struct in6_addr *);
 
 static int ldp_sync_fsm_init(struct iface *iface, int state);
-// TODO REMOTE ME? static int send_ldp_sync_hello_msg(void);
-static int send_ldp_sync_start_msg(struct iface *iface);
-static int send_ldp_sync_complete_msg(struct iface *iface);
 static int ldp_sync_act_iface_start_sync(struct iface *iface);
 static int iface_wait_for_ldp_sync_timer(struct thread *thread);
 static void start_wait_for_ldp_sync_timer(struct iface *iface);
@@ -676,81 +673,17 @@ ldp_sync_state_name(int state)
 	}
 }
 
-#if 0
-static int
-send_ldp_sync_hello_msg(void)
-{
-	struct ldp_igp_sync_hello hello;
-
-	hello.proto = ZEBRA_ROUTE_LDP;
-
-// TODO remove me? move this to the main LDP process?
-#if 0
-	return ldpe_imsg_compose_parent(IMSG_LDP_SYNC_HELLO_UPDATE, getpid(),
-		&hello, sizeof(hello));
-#endif
-
-	return 0;
-}
-#endif
-
 static int
 send_ldp_sync_state_update_msg(char *name, int ifindex, int sync_start)
 {
 	debug_evt_ldp_sync("%s: interface %s, ifindex=%d, sync_start=%d",
 		    __func__, name, ifindex, sync_start);
 
-	// TODO reuse this routine below...
-	// TODO consider removing send_ldp_sync_start_msg, send_ldp_sync_stop_msg
-
 	struct ldp_igp_sync_if_state state;
 
 	strlcpy(state.name, name, sizeof(state.name));
 	state.ifindex = ifindex;
 	state.sync_start = sync_start;
-
-        debug_evt_ldp_sync("%s: name=%s, ifindex=%d, sync_start=%d",
-                __func__, state.name, state.ifindex, state.sync_start);
-
-	return ldpe_imsg_compose_parent(IMSG_LDP_SYNC_IF_STATE_UPDATE, getpid(),
-		&state, sizeof(state));
-}
-
-static int
-send_ldp_sync_start_msg(struct iface *iface)
-{
-	debug_evt_ldp_sync("%s: interface %s, ifindex=%d",
-		    __func__, iface->name, iface->ifindex);
-
-	struct ldp_igp_sync_if_state state;
-
-	strlcpy(state.name, iface->name, sizeof(state.name));
-	state.ifindex = iface->ifindex;
-	state.sync_start = true;
-
-        debug_evt_ldp_sync("%s: name=%s, ifindex=%d, sync_start=%d",
-                __func__, state.name, state.ifindex, state.sync_start);
-
-	return ldpe_imsg_compose_parent(IMSG_LDP_SYNC_IF_STATE_UPDATE, getpid(),
-		&state, sizeof(state));
-
-	return 0;
-}
-
-static int
-send_ldp_sync_complete_msg(struct iface *iface)
-{
-	debug_evt_ldp_sync("%s: interface %s, ifindex=%d",
-		    __func__, iface->name, iface->ifindex);
-
-	struct ldp_igp_sync_if_state state;
-
-	strlcpy(state.name, iface->name, sizeof(state.name));
-	state.ifindex = iface->ifindex;
-	state.sync_start = false;
-
-        debug_evt_ldp_sync("%s: name=%s, ifindex=%d, sync_start=%d",
-                __func__, state.name, state.ifindex, state.sync_start);
 
 	return ldpe_imsg_compose_parent(IMSG_LDP_SYNC_IF_STATE_UPDATE, getpid(),
 		&state, sizeof(state));
@@ -762,7 +695,7 @@ ldp_sync_act_iface_start_sync(struct iface *iface)
 	debug_evt_ldp_sync("%s: interface %s",
 		    __func__, iface->name);
 
-	send_ldp_sync_start_msg(iface);
+	send_ldp_sync_state_update_msg(iface->name, iface->ifindex, true);
 
 	return (0);
 }
@@ -818,7 +751,7 @@ ldp_sync_act_ldp_complete_sync(struct iface *iface)
 	debug_evt_ldp_sync("%s: interface %s",
 		    __func__, iface->name);
 
-	send_ldp_sync_complete_msg(iface);
+	send_ldp_sync_state_update_msg(iface->name, iface->ifindex, false);
 
 	return 0;
 }
