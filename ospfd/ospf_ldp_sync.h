@@ -27,7 +27,7 @@
 extern void ospf_if_set_ldp_sync_enable(struct ospf *, struct interface *);
 extern void ospf_if_set_ldp_sync_holddown(struct ospf *, struct interface *);
 extern void ospf_ldp_sync_if_init(struct ospf_interface *);
-extern void ospf_ldp_sync_if_sync_start(struct interface *);
+extern void ospf_ldp_sync_if_sync_start(struct interface *, bool);
 extern void ospf_ldp_sync_if_remove(struct interface *);
 extern void ospf_ldp_sync_if_down(struct interface *);
 extern void ospf_ldp_sync_if_sync_complete(struct interface *);
