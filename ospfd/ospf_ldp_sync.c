@@ -121,8 +121,6 @@ int ldp_igp_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 		if (hello.proto != ZEBRA_ROUTE_LDP)
 			return 0;
 
-		if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
-			zlog_debug("ldp_sync: rcvd hello from LDP");
 		break;
 	default:
 		break;
