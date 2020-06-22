@@ -173,10 +173,7 @@ stream_failure:
 static void
 ldp_sync_zebra_start_hello_timer(void)
 {
-	// TODO should we ever stop heartbeat timer?
-	thread_add_timer(master, ldp_sync_zebra_hello, NULL, 1, NULL);
-
-// TODO REPLACE thread_add_timer with: thread_add_timer_ms() and thread_add_timer_tv() also...
+	thread_add_timer_msec(master, ldp_sync_zebra_hello, NULL, 250, NULL);
 }
 
 static int
