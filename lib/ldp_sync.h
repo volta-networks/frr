@@ -44,7 +44,9 @@ extern "C" {
 struct ldp_sync_info_cmd {
 	uint16_t flags;
 	uint16_t holddown;       /* timer value */
+	uint32_t sequence;       /* hello sequence number */
 };
+
 struct ldp_sync_info {
 	uint16_t flags;          /* indicate if set on interface or globally */
 	uint8_t enabled;         /* enabled */
