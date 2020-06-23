@@ -547,7 +547,7 @@ void ospf_del_if_params(struct ospf_if_params *oip)
 {
 	list_delete(&oip->auth_crypt);
 	bfd_info_free(&(oip->bfd_info));
-	ospf_ldp_sync_info_free(oip);
+	ldp_sync_info_free(&(oip->ldp_sync_info));
 	XFREE(MTYPE_OSPF_IF_PARAMS, oip);
 }
 
