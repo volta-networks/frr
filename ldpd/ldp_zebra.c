@@ -127,9 +127,6 @@ ldp_zebra_opaque_unregister(void)
 int
 ldp_sync_zebra_send_state_update(struct ldp_igp_sync_if_state *state)
 {
-	debug_evt_ldp_sync("%s: name=%s, ifindex=%d, sync_start=%d",
-		__func__, state->name, state->ifindex, state->sync_start);
-
         return zclient_send_opaque(zclient, LDP_IGP_SYNC_IF_STATE_UPDATE,
 		(const uint8_t *) state, sizeof(*state));
 }
