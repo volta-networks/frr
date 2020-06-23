@@ -116,26 +116,43 @@ int ldp_igp_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 		vrf = vrf_lookup_by_id(ospf->vrf_id);
 		FOR_ALL_INTERFACES (vrf, ifp)
 			ospf_ldp_sync_if_sync_start(ifp, true);
+
+		THREAD_TIMER_OFF(ospf->ldp_sync_cmd.t_hello);
+		ospf->ldp_sync_cmd.t_hello = NULL;
+		ospf->ldp_sync_cmd.sequence = 0;
+		ospf_ldp_sync_hello_timer_add(ospf);
+
 		break;
 	case LDP_IGP_SYNC_HELLO_UPDATE:
 		STREAM_GET(&hello, s, sizeof(hello));
 		if (hello.proto != ZEBRA_ROUTE_LDP)
 			return 0;
 
-		/* if sequence number is lower than current then assume
-		 * LDP restarted
+		/* if current sequence number is greater than received hello
+		 * sequence number then assume LDP restarted
 		 *  set cost to LSInfinity
 		 *  send request to LDP for LDP-SYNC state for each interface
+		 * else all is fine just restart hello timer
 		 */
-		if (hello.sequence < ospf->ldp_sync_cmd.sequence) {
+		if (hello.sequence == 0)
+			/* rolled over */
+			ospf->ldp_sync_cmd.sequence = 0;
+
+		if (ospf->ldp_sync_cmd.sequence > hello.sequence ) {
+			zlog_err("ldp_sync: LDP restarted");
+
 			vrf = vrf_lookup_by_id(ospf->vrf_id);
 			FOR_ALL_INTERFACES (vrf, ifp)
 				ospf_ldp_sync_if_sync_start(ifp, true);
+		} else {
+			THREAD_TIMER_OFF(ospf->ldp_sync_cmd.t_hello);
+			ospf_ldp_sync_hello_timer_add(ospf);
 		}
-		ospf->ldp_sync_cmd.sequence = hello.sequence;
 		break;
 	default:
 		break;
+
+		ospf->ldp_sync_cmd.sequence = hello.sequence;
 	}
 
 stream_failure:
@@ -212,6 +229,26 @@ void ospf_ldp_sync_if_sync_start(struct interface *ifp, bool send_state_req)
 
 		if (send_state_req)
 			ospf_ldp_sync_state_req_msg(ifp);
+	}
+}
+
+void ospf_ldp_sync_ldp_fail(struct interface *ifp)
+{
+	struct ospf_if_params *params;
+	struct ldp_sync_info *ldp_sync_info;
+
+	params = IF_DEF_PARAMS(ifp);
+	ldp_sync_info = params->ldp_sync_info;
+
+	/* LDP failed to send hello:
+	 *  set cost of interface to LSInfinity so traffic will use different
+         *      interface until LDP has learned all labels from peer
+	 */
+	if (ldp_sync_info &&
+	    ldp_sync_info->enabled == LDP_IGP_SYNC_ENABLED &&
+	    ldp_sync_info->state != LDP_IGP_SYNC_STATE_NOT_REQUIRED) {
+		ldp_sync_info->state = LDP_IGP_SYNC_STATE_REQUIRED_NOT_UP;
+		ospf_if_recalculate_output_cost(ifp);
 	}
 }
 
@@ -351,6 +388,47 @@ void ospf_ldp_sync_holddown_timer_add(struct interface *ifp)
 			 &ldp_sync_info->t_holddown);
 }
 
+/*
+ * LDP-SYNC hello timer routines
+ */
+static int ospf_ldp_sync_hello_timer(struct thread *thread)
+{
+	struct ospf *ospf;
+	struct vrf *vrf;
+	struct interface *ifp;
+
+	/* hello timer expired:
+         *  didn't receive hello msg from LDP
+	 *  set cost of all interfaces to LSInfinity
+	 */
+	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+	ospf->ldp_sync_cmd.t_hello = NULL;
+	vrf = vrf_lookup_by_id(ospf->vrf_id);
+
+	FOR_ALL_INTERFACES (vrf, ifp)
+		ospf_ldp_sync_ldp_fail(ifp);
+
+	zlog_err("ldp_sync: hello timer expired, LDP down");
+
+	return 0;
+}
+
+void ospf_ldp_sync_hello_timer_add(struct ospf *ospf)
+{
+
+	/* Start hello timer:
+         *  this timer is used to make sure LDP is up
+         *  if expires set interface cost to LSInfinity
+         */
+	if (!CHECK_FLAG(ospf->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE))
+		return;
+
+	/* Set timer. */
+	thread_add_timer(master, ospf_ldp_sync_hello_timer,
+			 NULL, LDP_IGP_SYNC_HELLO_TIMEOUT,
+			 &ospf->ldp_sync_cmd.t_hello);
+}
+
 void ospf_ldp_sync_if_sync_complete(struct interface *ifp)
 {
 	struct ospf_if_params *params;
@@ -359,19 +437,18 @@ void ospf_ldp_sync_if_sync_complete(struct interface *ifp)
 	params = IF_DEF_PARAMS(ifp);
 	ldp_sync_info = params->ldp_sync_info;
 
-	if (ldp_sync_info == NULL)
-		return;
-
 	/* received sync-complete from LDP:
          *  set state to up
 	 *  stop timer
 	 *  restore interface cost to original value
          */
-	if (ldp_sync_info->state == LDP_IGP_SYNC_STATE_REQUIRED_NOT_UP)
-		ldp_sync_info->state = LDP_IGP_SYNC_STATE_REQUIRED_UP;
-	THREAD_TIMER_OFF(ldp_sync_info->t_holddown);
-	ldp_sync_info->t_holddown = NULL;
-	ospf_if_recalculate_output_cost(ifp);
+	if (ldp_sync_info && ldp_sync_info->enabled == LDP_IGP_SYNC_ENABLED) {
+		if (ldp_sync_info->state == LDP_IGP_SYNC_STATE_REQUIRED_NOT_UP)
+			ldp_sync_info->state = LDP_IGP_SYNC_STATE_REQUIRED_UP;
+		THREAD_TIMER_OFF(ldp_sync_info->t_holddown);
+		ldp_sync_info->t_holddown = NULL;
+		ospf_if_recalculate_output_cost(ifp);
+	}
 }
 
 /*
@@ -686,6 +763,11 @@ DEFUN (ospf_mpls_ldp_sync,
 	struct vrf *vrf = vrf_lookup_by_id(ospf->vrf_id);
 	struct interface *ifp;
 
+	/* register with opaque client to recv LDP-IGP Sync msgs */
+	zclient_register_opaque(zclient, LDP_IGP_SYNC_IF_STATE_UPDATE);
+	zclient_register_opaque(zclient, LDP_IGP_SYNC_ANNOUNCE_UPDATE);
+	zclient_register_opaque(zclient, LDP_IGP_SYNC_HELLO_UPDATE);
+
 	if (!CHECK_FLAG(ospf->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE)) {
 		SET_FLAG(ospf->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE);
 		/* turn on LDP-IGP Sync on all ptop OSPF interfaces */
@@ -710,6 +792,12 @@ DEFUN (no_ospf_mpls_ldp_sync,
 	 * configuration, even interface configuration
          */
 	if (CHECK_FLAG(ospf->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE)) {
+
+		/* register with opaque client to recv LDP-IGP Sync msgs */
+		zclient_unregister_opaque(zclient, LDP_IGP_SYNC_IF_STATE_UPDATE);
+		zclient_unregister_opaque(zclient, LDP_IGP_SYNC_ANNOUNCE_UPDATE);
+		zclient_unregister_opaque(zclient, LDP_IGP_SYNC_HELLO_UPDATE);
+
 		UNSET_FLAG(ospf->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE);
 		UNSET_FLAG(ospf->ldp_sync_cmd.flags, LDP_SYNC_FLAG_HOLDDOWN);
 		ospf->ldp_sync_cmd.holddown = LDP_IGP_SYNC_HOLDDOWN_DEFAULT;

@@ -40,11 +40,14 @@ extern "C" {
 
 #define LDP_IGP_SYNC_HOLDDOWN_DEFAULT 0
 
+#define LDP_IGP_SYNC_HELLO_TIMEOUT 1
+
 /* LDP-IGP Sync structures */
 struct ldp_sync_info_cmd {
 	uint16_t flags;
 	uint16_t holddown;       /* timer value */
 	uint32_t sequence;       /* hello sequence number */
+	struct thread *t_hello;  /* hello timer for detecting LDP going down */
 };
 
 struct ldp_sync_info {
@@ -60,7 +63,7 @@ extern struct ldp_sync_info *ldp_sync_info_create(void);
 extern bool ldp_sync_if_is_enabled(struct ldp_sync_info *);
 extern bool ldp_sync_if_down(struct ldp_sync_info *);
 extern void ldp_sync_info_free(struct ldp_sync_info **);
-
+	//extern void ldp_sync_hello_timer_add(
 extern void ldp_sync_state_req_msg(struct interface *ifp, int proto);
 
 struct ldp_igp_sync_announce {
