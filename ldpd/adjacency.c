@@ -106,8 +106,6 @@ adj_new(struct in_addr lsr_id, struct hello_source *source,
 		break;
 	}
 
-	ldp_sync_fsm_helper_adj(adj, LDP_SYNC_EVT_ADJ_NEW);
-
 	return (adj);
 }
 
@@ -122,7 +120,7 @@ adj_del(struct adj *adj, uint32_t notif_status)
 	adj_stop_itimer(adj);
 
 	if (nbr)
-		ldp_sync_fsm_helper_nbr(nbr, LDP_SYNC_EVT_ADJ_DEL);
+		ldp_sync_fsm_helper_adj(adj, LDP_SYNC_EVT_ADJ_DEL);
 
 	RB_REMOVE(global_adj_head, &global.adj_tree, adj);
 	if (nbr)

@@ -48,7 +48,9 @@ static void start_wait_for_ldp_sync_timer(struct iface *iface);
 static void stop_wait_for_ldp_sync_timer(struct iface *iface);
 static int ldp_sync_act_ldp_start_sync(struct iface *iface);
 static int ldp_sync_act_ldp_complete_sync(struct iface *iface);
-static struct iface *nbr_to_hello_link_iface(struct nbr *nbr, int *nbr_count);
+static struct iface *nbr_to_hello_link_iface(struct nbr *nbr);
+static int iface_to_adj_count(struct iface *iface, unsigned int type);
+static int iface_to_oper_nbr_count(struct iface *iface, unsigned int type);
 
 RB_GENERATE(iface_head, iface, entry, iface_compare)
 
@@ -156,17 +158,9 @@ if_update_info(struct iface *iface, struct kif *kif)
 	if (ldpd_process == PROC_LDP_ENGINE && iface->operative && !kif->operative)
 		ldp_sync_fsm(iface, LDP_SYNC_EVT_IFACE_SHUTDOWN);
 
-	int old_ifindex = iface->ifindex;
-
 	/* get index and flags */
 	iface->ifindex = kif->ifindex;
 	iface->operative = kif->operative;
-
-	if (ldpd_process == PROC_LDP_ENGINE &&
-	    old_ifindex == 0 &&
-	    old_ifindex != iface->ifindex)
-		ldp_sync_fsm(iface, LDP_SYNC_EVT_IFACE_ANNOUNCE);
-// TODO: if new interface is added to LDP should we send a 'not in sync' event?
 }
 
 struct iface_af *
@@ -645,7 +639,7 @@ const char * const ldp_sync_event_names[] = {
 	"IFACE SYNC START (ADJ NEW)",
 	"IFACE SYNC START (SESSION CLOSE)",
 	"IFACE SYNC START (CONFIG LDP ON)",
-	"IFACE ANNOUNCE",
+	"IFACE ANNOUNCE", // TODO REMOVE ME
 	"IFACE SHUTDOWN",
 	"N/A"
 };
@@ -656,7 +650,7 @@ const char * const ldp_sync_action_names[] = {
 	"LDP START SYNC",
 	"LDP COMPLETE SYNC",
 	"CONFIG LDP OFF",
-	"IFACE ANNOUNCE",
+	"IFACE ANNOUNCE", // TODO REMOVE ME
 	"IFACE SHUTDOWN",
 	"N/A"
 };
@@ -719,6 +713,12 @@ static void start_wait_for_ldp_sync_timer(struct iface *iface)
 	debug_evt_ldp_sync("%s: interface %s",
 		    __func__, iface->name);
 
+	if (iface->ldp_sync.wait_for_ldp_sync_timer)
+	{
+		debug_evt_ldp_sync("%s: interface %s, timer already running",
+			__func__, iface->name);
+		return;
+	}
 	THREAD_TIMER_OFF(iface->ldp_sync.wait_for_ldp_sync_timer);
 	iface->ldp_sync.wait_for_ldp_sync_timer = NULL;
 	thread_add_timer(master, iface_wait_for_ldp_sync_timer, iface,
@@ -758,22 +758,59 @@ ldp_sync_act_ldp_complete_sync(struct iface *iface)
 }
 
 static struct iface *
-nbr_to_hello_link_iface(struct nbr *nbr, int *nbr_count)
+nbr_to_hello_link_iface(struct nbr *nbr)
 {
 	struct adj      *adj;
 	struct iface 	*iface = NULL;
-	*nbr_count = 0;
 	RB_FOREACH(adj, nbr_adj_head, &nbr->adj_tree)
 	{
 		if (HELLO_LINK == adj->source.type) {
-			if (!iface)
-				iface = adj->source.link.ia->iface;
-
-			(*nbr_count)++;
+			iface = adj->source.link.ia->iface;
+			break;
 		}
 	}
 
 	return iface;
+}
+
+static int
+iface_to_adj_count(struct iface *iface, unsigned int type)
+{
+	int adj_count = 0;
+	struct adj *adj;
+
+	RB_FOREACH(adj, ia_adj_head, &iface->ipv4.adj_tree) {
+		if (type == adj->source.type)
+			adj_count++;
+	}
+
+	RB_FOREACH(adj, ia_adj_head, &iface->ipv6.adj_tree) {
+		if (type == adj->source.type)
+			adj_count++;
+	}
+
+	return adj_count;
+}
+
+static int
+iface_to_oper_nbr_count(struct iface *iface, unsigned int type)
+{
+	int oper_nbr_count = 0;
+	struct adj *adj;
+
+	RB_FOREACH(adj, ia_adj_head, &iface->ipv4.adj_tree) {
+		if (type == adj->source.type && adj->nbr &&
+		    adj->nbr->state == NBR_STA_OPER)
+			oper_nbr_count++;
+	}
+
+	RB_FOREACH(adj, ia_adj_head, &iface->ipv6.adj_tree) {
+		if (type == adj->source.type && adj->nbr &&
+		    adj->nbr->state == NBR_STA_OPER)
+			oper_nbr_count++;
+	}
+
+	return oper_nbr_count;
 }
 
 int
@@ -791,6 +828,52 @@ ldp_sync_fsm_helper_adj(struct adj *adj, enum ldp_sync_event event)
 	if (!iface->operative)
 		return 0;
 
+// TODO: move the following counts to the if{} blocks where they are used
+	int adj_count = iface_to_adj_count(iface, HELLO_LINK);
+	int oper_nbr_count = iface_to_oper_nbr_count(iface, HELLO_LINK);
+
+	debug_evt_ldp_sync("%s: interface=%s, ifindex=%d, state=%d=%s, adj_count=%d, oper_nbr_count=%d",
+		__FUNCTION__, iface->name, iface->ifindex,
+		iface->ldp_sync.state, ldp_sync_state_name(iface->ldp_sync.state),
+		adj_count, oper_nbr_count);
+
+	if (event == LDP_SYNC_EVT_ADJ_NEW)
+	{
+		struct nbr *nbr = adj->nbr;
+		if (nbr && nbr->state == NBR_STA_OPER)
+		{
+			event = LDP_SYNC_EVT_LDP_SYNC_START;
+			debug_evt_ldp_sync("%s: interface=%s, ifindex=%d, adj_count=%d, lsr-id %s, neighbor state %s event %s (%d)",
+				__func__, iface->name, iface->ifindex, adj_count,
+				inet_ntoa(nbr->id),
+				nbr_state_name(nbr->state),
+				ldp_sync_event_names[event], event);
+		}
+	}
+	else if (event == LDP_SYNC_EVT_ADJ_DEL)
+	{
+		/* Act on event this is the last operational neighbor
+		 * that is adjacent via HELLO_LINK
+		 */
+		if (adj->nbr && adj->nbr->state == NBR_STA_OPER && oper_nbr_count > 1)
+		{
+			struct nbr *nbr = adj->nbr;
+			debug_evt_ldp_sync("%s: ignoring adj-del; not last neighbor: lsr-id %s, event %s (%d), interface=%s, ifindex=%d, state=%d=%s, adj_count=%d",
+				__FUNCTION__, inet_ntoa(nbr->id), ldp_sync_event_names[event], event,
+				iface->name, iface->ifindex,
+				iface->ldp_sync.state, ldp_sync_state_name(iface->ldp_sync.state), oper_nbr_count);
+
+			// Process these events when last neighbor leaves interface.
+			return 0;
+		}
+	}
+
+	if (adj_count > 1)
+	{
+		// Process the first neighbor adjacency
+		return 0;
+	}
+
 	return ldp_sync_fsm(iface, event);
 }
 
@@ -801,8 +884,7 @@ ldp_sync_fsm_helper_nbr(struct nbr *nbr, enum ldp_sync_event event)
 		    __func__, inet_ntoa(nbr->id),
 		    ldp_sync_event_names[event], event);
 
-	int nbr_count = 0;
-	struct iface *iface = nbr_to_hello_link_iface(nbr, &nbr_count);
+	struct iface *iface = nbr_to_hello_link_iface(nbr);
 
 	if (!iface)
 		return -1;
@@ -810,13 +892,19 @@ ldp_sync_fsm_helper_nbr(struct nbr *nbr, enum ldp_sync_event event)
 	if (!iface->operative)
 		return 0;
 
-	debug_evt_ldp_sync("%s: interface=%s, ifindex=%d, state=%d=%s, nbr_count=%d",
-		__FUNCTION__, iface->name, iface->ifindex,
-		iface->ldp_sync.state, ldp_sync_state_name(iface->ldp_sync.state), nbr_count);
+// TODO: move the following count to the block where it is used...
+	int oper_nbr_count = iface_to_oper_nbr_count(iface, HELLO_LINK);
 
-	if ((event == LDP_SYNC_EVT_SESSION_CLOSE || event == LDP_SYNC_EVT_ADJ_DEL) &&
-	    (nbr_count > 1))
+	if (event == LDP_SYNC_EVT_SESSION_CLOSE && oper_nbr_count > 1)
 	{
+		/* Act on event this is the last operational neighbor
+		 * that is adjacent via HELLO_LINK
+		 */
+		debug_evt_ldp_sync("%s: lsr-id %s, event %s (%d), interface=%s, ifindex=%d, state=%d=%s, adj_count=%d",
+			__FUNCTION__, inet_ntoa(nbr->id), ldp_sync_event_names[event], event,
+			iface->name, iface->ifindex,
+			iface->ldp_sync.state, ldp_sync_state_name(iface->ldp_sync.state), oper_nbr_count);
+
 		// Process these events when last neighbor leaves interface.
 		return 0;
 	}
@@ -958,4 +1046,6 @@ ldp_sync_fsm_reset_all(void)
 	RB_FOREACH(iface, iface_head, &leconf->iface_tree)
 		ldp_sync_fsm(iface, LDP_SYNC_EVT_CONFIG_LDP_OFF);
 }
+// TODO: fix lines longer than 80 char
+// TODO: test with multiple neighbors.  Test last hello=link close-session or adj-del.
 
