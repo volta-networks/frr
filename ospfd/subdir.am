@@ -76,6 +76,7 @@ endif
 
 clippy_scan += \
 	ospfd/ospf_vty.c \
+	ospfd/ospf_ldp_sync.c \
 	# end
 
 noinst_HEADERS += \
