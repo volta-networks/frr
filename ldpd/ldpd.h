@@ -231,9 +231,9 @@ enum nbr_action {
 };
 
 /* LDP IGP Sync states */
-#define	LDP_SYNC_STA_UNKNOWN		0x0000
-#define	LDP_SYNC_STA_REQ_NOT_ACH 	0x0001
-#define	LDP_SYNC_STA_REQ_ACH		0x0002
+#define	LDP_SYNC_STA_UNKNOWN	0x0000
+#define	LDP_SYNC_STA_NOT_ACH 	0x0001
+#define	LDP_SYNC_STA_ACH	0x0002
 
 /* LDP IGP Sync events */
 enum ldp_sync_event {
