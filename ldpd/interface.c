@@ -674,7 +674,6 @@ send_ldp_sync_state_update_msg(char *name, int ifindex, int sync_start)
 
 	struct ldp_igp_sync_if_state state;
 
-	strlcpy(state.name, name, sizeof(state.name));
 	state.ifindex = ifindex;
 	state.sync_start = sync_start;
 

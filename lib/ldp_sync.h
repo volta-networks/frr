@@ -71,15 +71,14 @@ struct ldp_igp_sync_announce {
 };
 
 struct ldp_igp_sync_if_state {
-	char name[INTERFACE_NAMSIZ];
 	ifindex_t ifindex;
 	bool sync_start;
 };
 
 struct ldp_igp_sync_if_state_req {
 	int proto;
-	char name[INTERFACE_NAMSIZ];
 	ifindex_t ifindex;
+	char name[INTERFACE_NAMSIZ];
 };
 
 struct ldp_igp_sync_hello {
