@@ -101,7 +101,7 @@ ldpe_if_init(struct iface *iface)
 	RB_INIT(ia_adj_head, &iface->ipv6.adj_tree);
 
 	/* LGP IGP Sync */
-	ldp_sync_fsm_init(iface, LDP_SYNC_STA_REQ_NOT_ACH);
+	ldp_sync_fsm_init(iface, LDP_SYNC_STA_NOT_ACH);
 }
 
 void
@@ -611,22 +611,22 @@ const struct {
 	int				new_state;
 } ldp_sync_fsm_tbl[] = {
     /* current state		event that happened		action to take			resulting state */
-/* LDP IGP Sync required not achieved */
-    {LDP_SYNC_STA_REQ_NOT_ACH,	LDP_SYNC_EVT_LDP_SYNC_START, 	LDP_SYNC_ACT_LDP_START_SYNC,	0},
-    {LDP_SYNC_STA_REQ_NOT_ACH,	LDP_SYNC_EVT_LDP_SYNC_COMPLETE,	LDP_SYNC_ACT_LDP_COMPLETE_SYNC,	LDP_SYNC_STA_REQ_ACH},
-    {LDP_SYNC_STA_REQ_NOT_ACH,	LDP_SYNC_EVT_CONFIG_LDP_OFF,	LDP_SYNC_ACT_CONFIG_LDP_OFF,	LDP_SYNC_STA_REQ_NOT_ACH},
-    {LDP_SYNC_STA_REQ_NOT_ACH,	LDP_SYNC_EVT_IFACE_SHUTDOWN, 	LDP_SYNC_ACT_IFACE_SHUTDOWN,	LDP_SYNC_STA_REQ_NOT_ACH},
-    {LDP_SYNC_STA_REQ_NOT_ACH,	LDP_SYNC_EVT_SESSION_CLOSE, 	LDP_SYNC_ACT_NOTHING,		0},
-    {LDP_SYNC_STA_REQ_NOT_ACH,	LDP_SYNC_EVT_ADJ_DEL, 		LDP_SYNC_ACT_NOTHING,		0},
-    {LDP_SYNC_STA_REQ_NOT_ACH,	LDP_SYNC_EVT_ADJ_NEW, 		LDP_SYNC_ACT_NOTHING,		0},
-/* LDP IGP Sync required achieved */
-    {LDP_SYNC_STA_REQ_ACH,	LDP_SYNC_EVT_CONFIG_LDP_OFF,	LDP_SYNC_ACT_CONFIG_LDP_OFF,	LDP_SYNC_STA_REQ_NOT_ACH},
-    {LDP_SYNC_STA_REQ_ACH,	LDP_SYNC_EVT_LDP_SYNC_COMPLETE,	LDP_SYNC_ACT_NOTHING,		0},
-    {LDP_SYNC_STA_REQ_ACH,	LDP_SYNC_EVT_LDP_SYNC_START, 	LDP_SYNC_ACT_NOTHING,		0},
-    {LDP_SYNC_STA_REQ_ACH,	LDP_SYNC_EVT_IFACE_SHUTDOWN, 	LDP_SYNC_ACT_IFACE_SHUTDOWN,	LDP_SYNC_STA_REQ_NOT_ACH},
-    {LDP_SYNC_STA_REQ_ACH,	LDP_SYNC_EVT_SESSION_CLOSE, 	LDP_SYNC_ACT_IFACE_START_SYNC,	LDP_SYNC_STA_REQ_NOT_ACH},
-    {LDP_SYNC_STA_REQ_ACH,	LDP_SYNC_EVT_ADJ_DEL, 		LDP_SYNC_ACT_IFACE_START_SYNC,	LDP_SYNC_STA_REQ_NOT_ACH},
-    {LDP_SYNC_STA_REQ_ACH,	LDP_SYNC_EVT_ADJ_NEW, 		LDP_SYNC_ACT_NOTHING,		0},
+/* LDP IGP Sync not achieved */
+    {LDP_SYNC_STA_NOT_ACH,	LDP_SYNC_EVT_LDP_SYNC_START, 	LDP_SYNC_ACT_LDP_START_SYNC,	0},
+    {LDP_SYNC_STA_NOT_ACH,	LDP_SYNC_EVT_LDP_SYNC_COMPLETE,	LDP_SYNC_ACT_LDP_COMPLETE_SYNC,	LDP_SYNC_STA_ACH},
+    {LDP_SYNC_STA_NOT_ACH,	LDP_SYNC_EVT_CONFIG_LDP_OFF,	LDP_SYNC_ACT_CONFIG_LDP_OFF,	LDP_SYNC_STA_NOT_ACH},
+    {LDP_SYNC_STA_NOT_ACH,	LDP_SYNC_EVT_IFACE_SHUTDOWN, 	LDP_SYNC_ACT_IFACE_SHUTDOWN,	LDP_SYNC_STA_NOT_ACH},
+    {LDP_SYNC_STA_NOT_ACH,	LDP_SYNC_EVT_SESSION_CLOSE, 	LDP_SYNC_ACT_NOTHING,		0},
+    {LDP_SYNC_STA_NOT_ACH,	LDP_SYNC_EVT_ADJ_DEL, 		LDP_SYNC_ACT_NOTHING,		0},
+    {LDP_SYNC_STA_NOT_ACH,	LDP_SYNC_EVT_ADJ_NEW, 		LDP_SYNC_ACT_NOTHING,		0},
+/* LDP IGP Sync achieved */
+    {LDP_SYNC_STA_ACH,		LDP_SYNC_EVT_CONFIG_LDP_OFF,	LDP_SYNC_ACT_CONFIG_LDP_OFF,	LDP_SYNC_STA_NOT_ACH},
+    {LDP_SYNC_STA_ACH,		LDP_SYNC_EVT_LDP_SYNC_COMPLETE,	LDP_SYNC_ACT_NOTHING,		0},
+    {LDP_SYNC_STA_ACH,		LDP_SYNC_EVT_LDP_SYNC_START, 	LDP_SYNC_ACT_NOTHING,		0},
+    {LDP_SYNC_STA_ACH,		LDP_SYNC_EVT_IFACE_SHUTDOWN, 	LDP_SYNC_ACT_IFACE_SHUTDOWN,	LDP_SYNC_STA_NOT_ACH},
+    {LDP_SYNC_STA_ACH,		LDP_SYNC_EVT_SESSION_CLOSE, 	LDP_SYNC_ACT_IFACE_START_SYNC,	LDP_SYNC_STA_NOT_ACH},
+    {LDP_SYNC_STA_ACH,		LDP_SYNC_EVT_ADJ_DEL, 		LDP_SYNC_ACT_IFACE_START_SYNC,	LDP_SYNC_STA_NOT_ACH},
+    {LDP_SYNC_STA_ACH,		LDP_SYNC_EVT_ADJ_NEW, 		LDP_SYNC_ACT_NOTHING,		0},
     {-1,			LDP_SYNC_EVT_NOTHING,		LDP_SYNC_ACT_NOTHING,		0},
 };
 
@@ -657,10 +657,10 @@ const char *
 ldp_sync_state_name(int state)
 {
 	switch (state) {
-	case LDP_SYNC_STA_REQ_NOT_ACH:
-		return ("REQUIRED NOT ACHIEVED");
-	case LDP_SYNC_STA_REQ_ACH:
-		return ("REQUIRED ACHIEVED");
+	case LDP_SYNC_STA_NOT_ACH:
+		return ("NOT ACHIEVED");
+	case LDP_SYNC_STA_ACH:
+		return ("ACHIEVED");
 	default:
 		return ("UNKNOWN");
 	}
@@ -669,7 +669,7 @@ ldp_sync_state_name(int state)
 static int
 send_ldp_sync_state_update_msg(char *name, int ifindex, int sync_start)
 {
-	debug_evt_ldp_sync("%s: interface %s, ifindex=%d, sync_start=%d",
+	debug_evt_ldp_sync("%s: interface %s (%d), sync_start=%d",
 		    __func__, name, ifindex, sync_start);
 
 	struct ldp_igp_sync_if_state state;
@@ -677,15 +677,15 @@ send_ldp_sync_state_update_msg(char *name, int ifindex, int sync_start)
 	state.ifindex = ifindex;
 	state.sync_start = sync_start;
 
-	return ldpe_imsg_compose_parent(IMSG_LDP_SYNC_IF_STATE_UPDATE, getpid(),
-		&state, sizeof(state));
+	return ldpe_imsg_compose_parent(IMSG_LDP_SYNC_IF_STATE_UPDATE,
+		getpid(), &state, sizeof(state));
 }
 
 static int
 ldp_sync_act_iface_start_sync(struct iface *iface)
 {
-	debug_evt_ldp_sync("%s: interface %s",
-		    __func__, iface->name);
+	debug_evt_ldp_sync("%s: interface %s (%d)", __func__,
+		iface->name, iface->ifindex);
 
 	send_ldp_sync_state_update_msg(iface->name, iface->ifindex, true);
 
@@ -697,8 +697,8 @@ iface_wait_for_ldp_sync_timer(struct thread *thread)
 {
 	struct iface *iface = THREAD_ARG(thread);
 
-	debug_evt_ldp_sync("%s: interface %s",
-		    __func__, iface->name);
+	debug_evt_ldp_sync("%s: interface %s (%d)", __func__,
+		iface->name, iface->ifindex);
 
 	ldp_sync_fsm(iface, LDP_SYNC_EVT_LDP_SYNC_COMPLETE);
 
@@ -707,8 +707,8 @@ iface_wait_for_ldp_sync_timer(struct thread *thread)
 
 static void start_wait_for_ldp_sync_timer(struct iface *iface)
 {
-	debug_evt_ldp_sync("%s: interface %s",
-		    __func__, iface->name);
+	debug_evt_ldp_sync("%s: interface %s (%d)", __func__,
+		iface->name, iface->ifindex);
 
 	if (iface->ldp_sync.wait_for_ldp_sync_timer)
 	{
@@ -725,8 +725,8 @@ static void start_wait_for_ldp_sync_timer(struct iface *iface)
 
 static void stop_wait_for_ldp_sync_timer(struct iface *iface)
 {
-	debug_evt_ldp_sync("%s: interface %s",
-		    __func__, iface->name);
+	debug_evt_ldp_sync("%s: interface %s (%d)", __func__,
+		iface->name, iface->ifindex);
 
 	THREAD_TIMER_OFF(iface->ldp_sync.wait_for_ldp_sync_timer);
 	iface->ldp_sync.wait_for_ldp_sync_timer = NULL;
@@ -735,8 +735,8 @@ static void stop_wait_for_ldp_sync_timer(struct iface *iface)
 static int
 ldp_sync_act_ldp_start_sync(struct iface *iface)
 {
-	debug_evt_ldp_sync("%s: interface %s",
-		    __func__, iface->name);
+	debug_evt_ldp_sync("%s: interface %s (%d)", __func__,
+		iface->name, iface->ifindex);
 
 	start_wait_for_ldp_sync_timer(iface);
 
@@ -746,8 +746,8 @@ ldp_sync_act_ldp_start_sync(struct iface *iface)
 static int
 ldp_sync_act_ldp_complete_sync(struct iface *iface)
 {
-	debug_evt_ldp_sync("%s: interface %s",
-		    __func__, iface->name);
+	debug_evt_ldp_sync("%s: interface %s (%d)", __func__,
+		iface->name, iface->ifindex);
 
 	send_ldp_sync_state_update_msg(iface->name, iface->ifindex, false);
 
@@ -816,9 +816,10 @@ ldp_sync_fsm_helper_adj(struct adj *adj, enum ldp_sync_event event)
         if (HELLO_LINK != adj->source.type)
 		return -1;
 
-	debug_evt_ldp_sync("%s: adj iface %s, event %s (%d)",
+	debug_evt_ldp_sync("%s: adj iface %s (%d), event %s",
 		    __func__, adj->source.link.ia->iface->name,
-		    ldp_sync_event_names[event], event);
+		    adj->source.link.ia->iface->ifindex,
+		    ldp_sync_event_names[event]);
 
 	struct iface *iface = adj->source.link.ia->iface;
 
@@ -829,9 +830,10 @@ ldp_sync_fsm_helper_adj(struct adj *adj, enum ldp_sync_event event)
 	int adj_count = iface_to_adj_count(iface, HELLO_LINK);
 	int oper_nbr_count = iface_to_oper_nbr_count(iface, HELLO_LINK);
 
-	debug_evt_ldp_sync("%s: interface=%s, ifindex=%d, state=%d=%s, adj_count=%d, oper_nbr_count=%d",
+	debug_evt_ldp_sync("%s: interface=%s (%d), state=%s, adj_count=%d, "
+		"oper_nbr_count=%d",
 		__FUNCTION__, iface->name, iface->ifindex,
-		iface->ldp_sync.state, ldp_sync_state_name(iface->ldp_sync.state),
+		ldp_sync_state_name(iface->ldp_sync.state),
 		adj_count, oper_nbr_count);
 
 	if (event == LDP_SYNC_EVT_ADJ_NEW)
@@ -840,11 +842,13 @@ ldp_sync_fsm_helper_adj(struct adj *adj, enum ldp_sync_event event)
 		if (nbr && nbr->state == NBR_STA_OPER)
 		{
 			event = LDP_SYNC_EVT_LDP_SYNC_START;
-			debug_evt_ldp_sync("%s: interface=%s, ifindex=%d, adj_count=%d, lsr-id %s, neighbor state %s event %s (%d)",
-				__func__, iface->name, iface->ifindex, adj_count,
-				inet_ntoa(nbr->id),
+			debug_evt_ldp_sync("%s: interface=%s (%d), "
+				"adj_count=%d, lsr-id %s, neighbor state %s "
+				"event %s",
+				__func__, iface->name, iface->ifindex,
+				adj_count, inet_ntoa(nbr->id),
 				nbr_state_name(nbr->state),
-				ldp_sync_event_names[event], event);
+				ldp_sync_event_names[event]);
 		}
 	}
 	else if (event == LDP_SYNC_EVT_ADJ_DEL)
@@ -852,22 +856,29 @@ ldp_sync_fsm_helper_adj(struct adj *adj, enum ldp_sync_event event)
 		/* Act on event this is the last operational neighbor
 		 * that is adjacent via HELLO_LINK
 		 */
-		if (adj->nbr && adj->nbr->state == NBR_STA_OPER && oper_nbr_count > 1)
+		if (adj->nbr && adj->nbr->state == NBR_STA_OPER &&
+		    oper_nbr_count > 1)
 		{
 			struct nbr *nbr = adj->nbr;
-			debug_evt_ldp_sync("%s: ignoring adj-del; not last neighbor: lsr-id %s, event %s (%d), interface=%s, ifindex=%d, state=%d=%s, adj_count=%d",
-				__FUNCTION__, inet_ntoa(nbr->id), ldp_sync_event_names[event], event,
+			debug_evt_ldp_sync("%s: ignoring adj-del; not last "
+				"neighbor: lsr-id %s, event %s, interface=%s "
+				"(%d), state=%s, adj_count=%d",
+				__FUNCTION__, inet_ntoa(nbr->id),
+				ldp_sync_event_names[event],
 				iface->name, iface->ifindex,
-				iface->ldp_sync.state, ldp_sync_state_name(iface->ldp_sync.state), oper_nbr_count);
+				ldp_sync_state_name(iface->ldp_sync.state),
+				oper_nbr_count);
 
-			// Process these events when last neighbor leaves interface.
+			/* Process these events when last neighbor leaves
+			 * interface.
+			 */
 			return 0;
 		}
 	}
 
 	if (adj_count > 1)
 	{
-		// Process the first neighbor adjacency
+		/* Process the first neighbor adjacency */
 		return 0;
 	}
 
@@ -877,9 +888,9 @@ ldp_sync_fsm_helper_adj(struct adj *adj, enum ldp_sync_event event)
 int
 ldp_sync_fsm_helper_nbr(struct nbr *nbr, enum ldp_sync_event event)
 {
-	debug_evt_ldp_sync("%s: lsr-id %s, event %s (%d)",
+	debug_evt_ldp_sync("%s: lsr-id %s, event %s",
 		    __func__, inet_ntoa(nbr->id),
-		    ldp_sync_event_names[event], event);
+		    ldp_sync_event_names[event]);
 
 	struct iface *iface = nbr_to_hello_link_iface(nbr);
 
@@ -897,12 +908,15 @@ ldp_sync_fsm_helper_nbr(struct nbr *nbr, enum ldp_sync_event event)
 		/* Act on event this is the last operational neighbor
 		 * that is adjacent via HELLO_LINK
 		 */
-		debug_evt_ldp_sync("%s: lsr-id %s, event %s (%d), interface=%s, ifindex=%d, state=%d=%s, adj_count=%d",
-			__FUNCTION__, inet_ntoa(nbr->id), ldp_sync_event_names[event], event,
+		debug_evt_ldp_sync("%s: lsr-id %s, event %s, "
+			"interface=%s (%d), state=%s, adj_count=%d",
+			__FUNCTION__, inet_ntoa(nbr->id),
+			ldp_sync_event_names[event],
 			iface->name, iface->ifindex,
-			iface->ldp_sync.state, ldp_sync_state_name(iface->ldp_sync.state), oper_nbr_count);
+			ldp_sync_state_name(iface->ldp_sync.state),
+			oper_nbr_count);
 
-		// Process these events when last neighbor leaves interface.
+		/* Process these events when last neighbor leaves interface. */
 		return 0;
 	}
 
@@ -916,25 +930,25 @@ ldp_sync_fsm_helper_state_req(struct ldp_igp_sync_if_state_req *state_req)
 		    __func__, state_req->name, state_req->ifindex);
 
 	struct iface *iface = if_lookup_name(leconf, state_req->name);
-// TODO: From Mark: the library 'if' module should have all the right kinds of access - take a look at lib/if.h ? it looks like there's access by ifindex (and vrf).
 
 	if (!iface)
 	{
-		debug_evt_ldp_sync("%s: Warning: failed to lookup interface %s (%d) ", __func__, state_req->name, state_req->ifindex);
-		return send_ldp_sync_state_update_msg(state_req->name, state_req->ifindex, false);
+		debug_evt_ldp_sync("%s: Warning: interface not found %s (%d)",
+			__func__, state_req->name, state_req->ifindex);
+
+		return 0;
 	}
 
-	return send_ldp_sync_state_update_msg(state_req->name, state_req->ifindex,
-		(iface->ldp_sync.state != LDP_SYNC_STA_REQ_ACH));
+	return send_ldp_sync_state_update_msg(state_req->name,
+		state_req->ifindex,
+		(iface->ldp_sync.state != LDP_SYNC_STA_ACH));
 }
 
 static int
 ldp_sync_fsm_init(struct iface *iface, int state)
 {
-	debug_evt_ldp_sync("%s: interface %s",
-		    __func__, iface->name);
-
-	bool verbose = false;
+	debug_evt_ldp_sync("%s: interface %s (%d) ",
+		    __func__, iface->name, iface->ifindex);
 
 	int old_state = iface->ldp_sync.state;
 
@@ -942,16 +956,16 @@ ldp_sync_fsm_init(struct iface *iface, int state)
 	stop_wait_for_ldp_sync_timer(iface);
 
 	send_ldp_sync_state_update_msg(iface->name, iface->ifindex,
-		(iface->ldp_sync.state != LDP_SYNC_STA_REQ_ACH));
+		(iface->ldp_sync.state != LDP_SYNC_STA_ACH));
 
-	if (verbose || old_state != iface->ldp_sync.state)
+	if (old_state != iface->ldp_sync.state)
 	{
 		debug_evt_ldp_sync("%s: resulted in "
-		    "changing state for interface %s from %s (%d) to %s (%d)",
-		    __func__,
-		    iface->name, ldp_sync_state_name(old_state), old_state,
-		    ldp_sync_state_name(iface->ldp_sync.state),
-		    iface->ldp_sync.state);
+			"changing state for interface %s (%d) from %s to %s",
+			__func__,
+			iface->name, iface->ifindex,
+			ldp_sync_state_name(old_state),
+			ldp_sync_state_name(iface->ldp_sync.state));
 	}
 
 	return 0;
@@ -960,7 +974,6 @@ ldp_sync_fsm_init(struct iface *iface, int state)
 int
 ldp_sync_fsm(struct iface *iface, enum ldp_sync_event event)
 {
-	bool 		verbose = false; // LDP_SYNC_TODO remove me
 	int		old_state = iface->ldp_sync.state;
 	int		new_state = 0;
 	int		i;
@@ -974,10 +987,10 @@ ldp_sync_fsm(struct iface *iface, enum ldp_sync_event event)
 
 	if (ldp_sync_fsm_tbl[i].state == -1) {
 		/* event outside of the defined fsm, ignore it. */
-		log_warnx("%s: interface %s, event %s (%d) not expected in "
-		    "state %s (%d) ", __func__, iface->name,
-		    ldp_sync_event_names[event], event,
-		    ldp_sync_state_name(old_state), old_state);
+		log_warnx("%s: interface %s, event %s not expected in "
+		    "state %s ", __func__, iface->name,
+		    ldp_sync_event_names[event],
+		    ldp_sync_state_name(old_state));
 		return (0);
 	}
 
@@ -995,7 +1008,7 @@ ldp_sync_fsm(struct iface *iface, enum ldp_sync_event event)
 		ldp_sync_act_ldp_complete_sync(iface);
 		break;
 	case LDP_SYNC_ACT_CONFIG_LDP_OFF:
-		ldp_sync_fsm_init(iface, LDP_SYNC_STA_REQ_NOT_ACH);
+		ldp_sync_fsm_init(iface, LDP_SYNC_STA_NOT_ACH);
 		break;
 	case LDP_SYNC_ACT_IFACE_SHUTDOWN:
 		ldp_sync_fsm_init(iface, iface->ldp_sync.state);
@@ -1007,28 +1020,23 @@ ldp_sync_fsm(struct iface *iface, enum ldp_sync_event event)
 
 	if (old_state != iface->ldp_sync.state) {
 
-		debug_evt_ldp_sync("%s: event %s (%d) resulted in action %s (%d) and "
-		    "changing state for interface %s from %s (%d) to %s (%d)",
+		debug_evt_ldp_sync("%s: event %s resulted in action %s and "
+		    "changing state for interface %s from %s to %s",
 		    __func__, ldp_sync_event_names[event],
-		    event,
 		    ldp_sync_action_names[ldp_sync_fsm_tbl[i].action],
-		    ldp_sync_fsm_tbl[i].action,
-		    iface->name, ldp_sync_state_name(old_state), old_state,
-		    ldp_sync_state_name(iface->ldp_sync.state),
-		    iface->ldp_sync.state);
+		    iface->name, ldp_sync_state_name(old_state),
+		    ldp_sync_state_name(iface->ldp_sync.state));
 
 	}
-	else if (verbose)
+	else
 	{
-		debug_evt_ldp_sync("%s: event %s (%d) resulted in action %s (%d) "
-		    "for interface %s, remaining in state %s (%d)",
+// TODO REMOVE ME? VERBOSE SYSLOG...
+		debug_evt_ldp_sync("%s: event %s resulted in action %s "
+		    "for interface %s, remaining in state %s",
 		    __func__, ldp_sync_event_names[event],
-		    event,
 		    ldp_sync_action_names[ldp_sync_fsm_tbl[i].action],
-		    ldp_sync_fsm_tbl[i].action,
 		    iface->name,
-		    ldp_sync_state_name(iface->ldp_sync.state),
-		    iface->ldp_sync.state);
+		    ldp_sync_state_name(iface->ldp_sync.state));
 	}
 
 	return (0);
@@ -1045,3 +1053,4 @@ ldp_sync_fsm_reset_all(void)
 // TODO: fix lines longer than 80 char
 // TODO: test with multiple neighbors.  Test last hello=link close-session or adj-del.
 
+// TODO: silence verbose logs
