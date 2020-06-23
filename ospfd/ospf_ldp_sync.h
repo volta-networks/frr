@@ -42,5 +42,4 @@ extern int  ldp_igp_opaque_msg_handler(ZAPI_CALLBACK_ARGS);
 extern void ospf_ldp_sync_state_req_msg(struct interface *);
 extern void ospf_ldp_sync_announce_send_msg(bool);
 extern void ospf_ldp_sync_init(void);
-extern void ospf_ldp_sync_info_free(struct ospf_if_params *oip);
 #endif /* _ZEBRA_OSPF_LDP_SYNC_H */

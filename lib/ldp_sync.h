@@ -63,7 +63,6 @@ extern struct ldp_sync_info *ldp_sync_info_create(void);
 extern bool ldp_sync_if_is_enabled(struct ldp_sync_info *);
 extern bool ldp_sync_if_down(struct ldp_sync_info *);
 extern void ldp_sync_info_free(struct ldp_sync_info **);
-	//extern void ldp_sync_hello_timer_add(
 extern void ldp_sync_state_req_msg(struct interface *ifp, int proto);
 
 struct ldp_igp_sync_announce {
