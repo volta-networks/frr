@@ -32,6 +32,8 @@ extern void ospf_ldp_sync_if_remove(struct interface *);
 extern void ospf_ldp_sync_if_down(struct interface *);
 extern void ospf_ldp_sync_if_sync_complete(struct interface *);
 extern void ospf_ldp_sync_holddown_timer_add(struct interface *);
+extern void ospf_ldp_sync_hello_timer_add(struct ospf *);
+extern void ospf_ldp_sync_ldp_fail(struct interface *);
 extern void ospf_ldp_sync_show_info(struct vty *, struct ospf *, json_object *,
 				    bool);
 extern void ospf_ldp_sync_write_config(struct vty *, struct ospf *);
