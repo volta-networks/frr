@@ -638,7 +638,6 @@ const char * const ldp_sync_event_names[] = {
 	"IFACE SYNC START (ADJ NEW)",
 	"IFACE SYNC START (SESSION CLOSE)",
 	"IFACE SYNC START (CONFIG LDP ON)",
-	"IFACE ANNOUNCE", // TODO REMOVE ME
 	"IFACE SHUTDOWN",
 	"N/A"
 };
@@ -649,7 +648,6 @@ const char * const ldp_sync_action_names[] = {
 	"LDP START SYNC",
 	"LDP COMPLETE SYNC",
 	"CONFIG LDP OFF",
-	"IFACE ANNOUNCE", // TODO REMOVE ME
 	"IFACE SHUTDOWN",
 	"N/A"
 };
@@ -1002,7 +1000,6 @@ ldp_sync_fsm(struct iface *iface, enum ldp_sync_event event)
 	case LDP_SYNC_ACT_IFACE_SHUTDOWN:
 		ldp_sync_fsm_init(iface, iface->ldp_sync.state);
 		break;
-	case LDP_SYNC_ACT_IFACE_ANNOUNCE: // TODO REMOVE ME?
 	case LDP_SYNC_ACT_NOTHING:
 		/* do nothing */
 		break;
