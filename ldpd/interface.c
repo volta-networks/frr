@@ -862,12 +862,12 @@ ldp_sync_fsm_helper_adj(struct adj *adj, enum ldp_sync_event event)
 			struct nbr *nbr = adj->nbr;
 			debug_evt_ldp_sync("%s: ignoring adj-del; not last "
 				"neighbor: lsr-id %s, event %s, interface=%s "
-				"(%d), state=%s, adj_count=%d",
+				"(%d), state=%s, adj_count=%d, oper_nbr_count=%d",
 				__FUNCTION__, inet_ntoa(nbr->id),
 				ldp_sync_event_names[event],
 				iface->name, iface->ifindex,
 				ldp_sync_state_name(iface->ldp_sync.state),
-				oper_nbr_count);
+				adj_count, oper_nbr_count);
 
 			/* Process these events when last neighbor leaves
 			 * interface.
@@ -909,7 +909,7 @@ ldp_sync_fsm_helper_nbr(struct nbr *nbr, enum ldp_sync_event event)
 		 * that is adjacent via HELLO_LINK
 		 */
 		debug_evt_ldp_sync("%s: lsr-id %s, event %s, "
-			"interface=%s (%d), state=%s, adj_count=%d",
+			"interface=%s (%d), state=%s, oper_nbr_count=%d",
 			__FUNCTION__, inet_ntoa(nbr->id),
 			ldp_sync_event_names[event],
 			iface->name, iface->ifindex,
@@ -933,7 +933,7 @@ ldp_sync_fsm_helper_state_req(struct ldp_igp_sync_if_state_req *state_req)
 
 	if (!iface)
 	{
-		debug_evt_ldp_sync("%s: Warning: interface not found %s (%d)",
+		debug_evt_ldp_sync("%s: Warning: interface %s (%d) not found",
 			__func__, state_req->name, state_req->ifindex);
 
 		return 0;
