@@ -766,7 +766,7 @@ nbr_act_session_operational(struct nbr *nbr)
 	/* this is necessary to avoid ipc synchronization issues */
 	nbr_update_peerid(nbr);
 
-	ldp_sync_fsm_helper_nbr(nbr, LDP_SYNC_EVT_LDP_SYNC_START);
+	ldp_sync_fsm_nbr_event(nbr, LDP_SYNC_EVT_LDP_SYNC_START);
 
 	memset(&lde_nbr, 0, sizeof(lde_nbr));
 	lde_nbr.id = nbr->id;

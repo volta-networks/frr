@@ -686,7 +686,7 @@ session_close(struct nbr *nbr)
 	log_debug("%s: closing session with lsr-id %s", __func__,
 	    inet_ntoa(nbr->id));
 
-	ldp_sync_fsm_helper_nbr(nbr, LDP_SYNC_EVT_SESSION_CLOSE);
+	ldp_sync_fsm_nbr_event(nbr, LDP_SYNC_EVT_SESSION_CLOSE);
 
 	tcp_close(nbr->tcp);
 	nbr_stop_ktimer(nbr);
