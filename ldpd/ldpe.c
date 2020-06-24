@@ -567,7 +567,7 @@ ldpe_dispatch_main(struct thread *thread)
 				break;
 			}
 			ldp_sync_if_state_req = imsg.data;
-			ldp_sync_fsm_helper_state_req(ldp_sync_if_state_req);
+			ldp_sync_fsm_state_req(ldp_sync_if_state_req);
 			break;
 		default:
 			log_debug("ldpe_dispatch_main: error handling imsg %d",

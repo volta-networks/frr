@@ -397,7 +397,7 @@ ldp_ifp_destroy(struct interface *ifp)
 }
 
 static int
-ldp_interface_status_change_helper(struct interface *ifp)
+ldp_interface_status_change(struct interface *ifp)
 {
 	struct listnode		*node;
 	struct connected	*ifc;
@@ -428,12 +428,12 @@ ldp_interface_status_change_helper(struct interface *ifp)
 
 static int ldp_ifp_up(struct interface *ifp)
 {
-	return ldp_interface_status_change_helper(ifp);
+	return ldp_interface_status_change(ifp);
 }
 
 static int ldp_ifp_down(struct interface *ifp)
 {
-	return ldp_interface_status_change_helper(ifp);
+	return ldp_interface_status_change(ifp);
 }
 
 static int
