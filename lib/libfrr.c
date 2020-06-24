@@ -661,7 +661,6 @@ struct thread_master *frr_init(void)
 
 	zlog_init(di->progname, di->logname, di->instance,
 		  ids.uid_normal, ids.gid_normal);
-	zlog_tls_buffer_init();
 
 	command_setup_early_logging(di->early_logging, di->early_loglevel);
 
@@ -902,14 +901,18 @@ static int frr_config_read_in(struct thread *t)
 	 * reading the configuration file.
 	 */
 	if (frr_get_cli_mode() == FRR_CLI_TRANSACTIONAL) {
+		struct nb_context context = {};
+		char errmsg[BUFSIZ] = {0};
 		int ret;
 
-		ret = nb_candidate_commit(vty_shared_candidate_config,
-					  NB_CLIENT_CLI, NULL, true,
-					  "Read configuration file", NULL);
+		context.client = NB_CLIENT_CLI;
+		ret = nb_candidate_commit(&context, vty_shared_candidate_config,
+					  true, "Read configuration file", NULL,
+					  errmsg, sizeof(errmsg));
 		if (ret != NB_OK && ret != NB_ERR_NO_CHANGES)
-			zlog_err("%s: failed to read configuration file.",
-				 __func__);
+			zlog_err(
+				"%s: failed to read configuration file: %s (%s)",
+				__func__, nb_err_name(ret), errmsg);
 	}
 
 	return 0;
@@ -936,6 +939,7 @@ void frr_config_fork(void)
 	if (!di->pid_file)
 		di->pid_file = pidfile_default;
 	pid_output(di->pid_file);
+	zlog_tls_buffer_init();
 }
 
 static void frr_vty_serv(void)

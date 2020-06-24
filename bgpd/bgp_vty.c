@@ -14815,11 +14815,6 @@ static void bgp_config_write_peer_af(struct vty *vty, struct bgp *bgp,
 		vty_out(vty, "\n");
 	}
 
-	/* BGP flag dampening. */
-	if (CHECK_FLAG(bgp->af_flags[afi][safi],
-		       BGP_CONFIG_DAMPENING))
-		bgp_config_write_damp(vty, afi, safi);
-
 	/* Route reflector client. */
 	if (peergroup_af_flag_check(peer, afi, safi,
 				    PEER_FLAG_REFLECTOR_CLIENT)) {
@@ -15043,6 +15038,10 @@ static void bgp_config_write_family(struct vty *vty, struct bgp *bgp, afi_t afi,
 	bgp_config_write_network(vty, bgp, afi, safi);
 
 	bgp_config_write_redistribute(vty, bgp, afi, safi);
+
+	/* BGP flag dampening. */
+	if (CHECK_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_DAMPENING))
+		bgp_config_write_damp(vty, afi, safi);
 
 	for (ALL_LIST_ELEMENTS(bgp->group, node, nnode, group))
 		bgp_config_write_peer_af(vty, bgp, group->conf, afi, safi);
@@ -17620,8 +17619,7 @@ DEFUN (extcommunity_list_standard,
 	argv_find(argv, argc, "WORD", &idx);
 	cl_number_or_name = argv[idx]->arg;
 
-	argv_find(argv, argc, "(1-4294967295)", &idx);
-	if (idx)
+	if (argv_find(argv, argc, "(1-4294967295)", &idx))
 		seq = argv[idx]->arg;
 
 	direct = argv_find(argv, argc, "permit", &idx) ? COMMUNITY_PERMIT
@@ -17666,8 +17664,7 @@ DEFUN (extcommunity_list_name_expanded,
 	argv_find(argv, argc, "WORD", &idx);
 	cl_number_or_name = argv[idx]->arg;
 
-	argv_find(argv, argc, "(1-4294967295)", &idx);
-	if (idx)
+	if (argv_find(argv, argc, "(1-4294967295)", &idx))
 		seq = argv[idx]->arg;
 
 	direct = argv_find(argv, argc, "permit", &idx) ? COMMUNITY_PERMIT
@@ -17710,8 +17707,7 @@ DEFUN (no_extcommunity_list_standard_all,
 	char *seq = NULL;
 	int idx = 0;
 
-	argv_find(argv, argc, "(1-4294967295)", &idx);
-	if (idx)
+	if (argv_find(argv, argc, "(1-4294967295)", &idx))
 		seq = argv[idx]->arg;
 
 	idx = 0;
@@ -17775,8 +17771,7 @@ DEFUN (no_extcommunity_list_expanded_all,
 	char *seq = NULL;
 	int idx = 0;
 
-	argv_find(argv, argc, "(1-4294967295)", &idx);
-	if (idx)
+	if (argv_find(argv, argc, "(1-4294967295)", &idx))
 		seq = argv[idx]->arg;
 
 	idx = 0;

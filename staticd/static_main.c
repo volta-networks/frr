@@ -42,6 +42,7 @@ char backup_config_file[256];
 
 bool mpls_enabled;
 
+
 zebra_capabilities_t _caps_p[] = {
 };
 
@@ -75,6 +76,8 @@ static void sigint(void)
 
 	static_vrf_terminate();
 
+	frr_fini();
+
 	exit(0);
 }
 
@@ -104,6 +107,7 @@ struct quagga_signal_t static_signals[] = {
 };
 
 static const struct frr_yang_module_info *const staticd_yang_modules[] = {
+	&frr_filter_info,
 	&frr_vrf_info,
 };
 

@@ -180,6 +180,7 @@ static struct quagga_signal_t ldp_signals[] =
 };
 
 static const struct frr_yang_module_info *const ldpd_yang_modules[] = {
+	&frr_filter_info,
 	&frr_vrf_info,
 };
 
@@ -494,7 +495,8 @@ start_child(enum ldpd_process p, char *argv0, int fd_async, int fd_sync)
 	int	 argc = 0, nullfd;
 	pid_t	 pid;
 
-	switch (pid = fork()) {
+	pid = fork();
+	switch (pid) {
 	case -1:
 		fatal("cannot fork");
 	case 0:

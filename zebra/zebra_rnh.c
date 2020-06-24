@@ -343,12 +343,15 @@ static void addr2hostprefix(int af, const union g_addr *addr,
 	}
 }
 
-void zebra_register_rnh_pseudowire(vrf_id_t vrf_id, struct zebra_pw *pw)
+void zebra_register_rnh_pseudowire(vrf_id_t vrf_id, struct zebra_pw *pw,
+				   bool *nht_exists)
 {
 	struct prefix nh;
 	struct rnh *rnh;
 	bool exists;
 	struct zebra_vrf *zvrf;
+
+	*nht_exists = false;
 
 	zvrf = vrf_info_lookup(vrf_id);
 	if (!zvrf)
@@ -356,12 +359,16 @@ void zebra_register_rnh_pseudowire(vrf_id_t vrf_id, struct zebra_pw *pw)
 
 	addr2hostprefix(pw->af, &pw->nexthop, &nh);
 	rnh = zebra_add_rnh(&nh, vrf_id, RNH_NEXTHOP_TYPE, &exists);
-	if (rnh && !listnode_lookup(rnh->zebra_pseudowire_list, pw)) {
+	if (!rnh)
+		return;
+
+	if (!listnode_lookup(rnh->zebra_pseudowire_list, pw)) {
 		listnode_add(rnh->zebra_pseudowire_list, pw);
 		pw->rnh = rnh;
 		zebra_evaluate_rnh(zvrf, family2afi(pw->af), 1,
 				   RNH_NEXTHOP_TYPE, &nh);
-	}
+	} else
+		*nht_exists = true;
 }
 
 void zebra_deregister_rnh_pseudowire(vrf_id_t vrf_id, struct zebra_pw *pw)
@@ -1001,12 +1008,13 @@ static int compare_state(struct route_entry *r1, struct route_entry *r2)
 static int send_client(struct rnh *rnh, struct zserv *client,
 		       enum rnh_type type, vrf_id_t vrf_id)
 {
-	struct stream *s;
+	struct stream *s = NULL;
 	struct route_entry *re;
 	unsigned long nump;
 	uint8_t num;
 	struct nexthop *nh;
 	struct route_node *rn;
+	int ret;
 	int cmd = (type == RNH_IMPORT_CHECK_TYPE) ? ZEBRA_IMPORT_CHECK_UPDATE
 						  : ZEBRA_NEXTHOP_UPDATE;
 
@@ -1032,7 +1040,7 @@ static int send_client(struct rnh *rnh, struct zserv *client,
 		flog_err(EC_ZEBRA_RNH_UNKNOWN_FAMILY,
 			 "%s: Unknown family (%d) notification attempted\n",
 			 __func__, rn->p.family);
-		break;
+		goto failure;
 	}
 	if (re) {
 		struct zapi_nexthop znh;
@@ -1047,7 +1055,10 @@ static int send_client(struct rnh *rnh, struct zserv *client,
 		for (ALL_NEXTHOPS(re->nhe->nhg, nh))
 			if (rnh_nexthop_valid(re, nh)) {
 				zapi_nexthop_from_nexthop(&znh, nh);
-				zapi_nexthop_encode(s, &znh, 0 /* flags */);
+				ret = zapi_nexthop_encode(s, &znh, 0/*flags*/);
+				if (ret < 0)
+					goto failure;
+
 				num++;
 			}
 		stream_putc_at(s, nump, num);
@@ -1063,6 +1074,11 @@ static int send_client(struct rnh *rnh, struct zserv *client,
 	client->nh_last_upd_time = monotime(NULL);
 	client->last_write_cmd = cmd;
 	return zserv_send_message(client, s);
+
+failure:
+
+	stream_free(s);
+	return -1;
 }
 
 static void print_nh(struct nexthop *nexthop, struct vty *vty)

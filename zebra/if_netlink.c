@@ -798,7 +798,7 @@ static int netlink_request_intf_addr(struct nlsock *netlink_cmd, int family,
 
 	/* Include filter, if specified. */
 	if (filter_mask)
-		addattr32(&req.n, sizeof(req), IFLA_EXT_MASK, filter_mask);
+		nl_attr_put32(&req.n, sizeof(req), IFLA_EXT_MASK, filter_mask);
 
 	return netlink_request(netlink_cmd, &req);
 }
@@ -903,8 +903,8 @@ int kernel_interface_set_master(struct interface *master,
 
 	req.ifa.ifi_index = slave->ifindex;
 
-	addattr_l(&req.n, sizeof(req), IFLA_MASTER, &master->ifindex, 4);
-	addattr_l(&req.n, sizeof(req), IFLA_LINK, &slave->ifindex, 4);
+	nl_attr_put32(&req.n, sizeof(req), IFLA_MASTER, master->ifindex);
+	nl_attr_put32(&req.n, sizeof(req), IFLA_LINK, slave->ifindex);
 
 	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns,
 			    0);
@@ -942,20 +942,20 @@ static int netlink_address_ctx(const struct zebra_dplane_ctx *ctx)
 
 	req.ifa.ifa_index = dplane_ctx_get_ifindex(ctx);
 
-	addattr_l(&req.n, sizeof(req), IFA_LOCAL, &p->u.prefix, bytelen);
+	nl_attr_put(&req.n, sizeof(req), IFA_LOCAL, &p->u.prefix, bytelen);
 
 	if (p->family == AF_INET) {
 		if (dplane_ctx_intf_is_connected(ctx)) {
 			p = dplane_ctx_get_intf_dest(ctx);
-			addattr_l(&req.n, sizeof(req), IFA_ADDRESS,
-				  &p->u.prefix, bytelen);
+			nl_attr_put(&req.n, sizeof(req), IFA_ADDRESS,
+				    &p->u.prefix, bytelen);
 		} else if (cmd == RTM_NEWADDR) {
 			struct in_addr broad = {
 				.s_addr = ipv4_broadcast_addr(p->u.prefix4.s_addr,
 							p->prefixlen)
 			};
-			addattr_l(&req.n, sizeof(req), IFA_BROADCAST,
-				  &broad, bytelen);
+			nl_attr_put(&req.n, sizeof(req), IFA_BROADCAST, &broad,
+				    bytelen);
 		}
 	}
 
@@ -967,8 +967,8 @@ static int netlink_address_ctx(const struct zebra_dplane_ctx *ctx)
 
 	if (dplane_ctx_intf_has_label(ctx)) {
 		label = dplane_ctx_get_intf_label(ctx);
-		addattr_l(&req.n, sizeof(req), IFA_LABEL, label,
-			  strlen(label) + 1);
+		nl_attr_put(&req.n, sizeof(req), IFA_LABEL, label,
+			    strlen(label) + 1);
 	}
 
 	return netlink_talk_info(netlink_talk_filter, &req.n,
@@ -1121,16 +1121,23 @@ int netlink_interface_addr(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 				nl_msg_type_to_str(h->nlmsg_type));
 			return -1;
 		}
+
 		if (h->nlmsg_type == RTM_NEWADDR)
 			connected_add_ipv4(ifp, flags, (struct in_addr *)addr,
 					   ifa->ifa_prefixlen,
 					   (struct in_addr *)broad, label,
 					   metric);
-		else
+		else if (CHECK_FLAG(flags, ZEBRA_IFA_PEER)) {
+			/* Delete with a peer address */
+			connected_delete_ipv4(
+				ifp, flags, (struct in_addr *)addr,
+				ifa->ifa_prefixlen, broad);
+		} else
 			connected_delete_ipv4(
 				ifp, flags, (struct in_addr *)addr,
 				ifa->ifa_prefixlen, NULL);
 	}
+
 	if (ifa->ifa_family == AF_INET6) {
 		if (ifa->ifa_prefixlen > IPV6_MAX_BITLEN) {
 			zlog_err(
@@ -1513,8 +1520,8 @@ int netlink_protodown(struct interface *ifp, bool down)
 
 	req.ifa.ifi_index = ifp->ifindex;
 
-	addattr_l(&req.n, sizeof(req), IFLA_PROTO_DOWN, &down, sizeof(down));
-	addattr_l(&req.n, sizeof(req), IFLA_LINK, &ifp->ifindex, 4);
+	nl_attr_put(&req.n, sizeof(req), IFLA_PROTO_DOWN, &down, sizeof(down));
+	nl_attr_put32(&req.n, sizeof(req), IFLA_LINK, ifp->ifindex);
 
 	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns,
 			    0);

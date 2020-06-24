@@ -448,6 +448,32 @@ bool yang_dnode_exists(const struct lyd_node *dnode, const char *xpath_fmt, ...)
 	return found;
 }
 
+void yang_dnode_iterate(yang_dnode_iter_cb cb, void *arg,
+			const struct lyd_node *dnode, const char *xpath_fmt,
+			...)
+{
+	va_list ap;
+	char xpath[XPATH_MAXLEN];
+	struct ly_set *set;
+
+	va_start(ap, xpath_fmt);
+	vsnprintf(xpath, sizeof(xpath), xpath_fmt, ap);
+	va_end(ap);
+
+	set = lyd_find_path(dnode, xpath);
+	assert(set);
+	for (unsigned int i = 0; i < set->number; i++) {
+		int ret;
+
+		dnode = set->set.d[i];
+		ret = (*cb)(dnode, arg);
+		if (ret == YANG_ITER_STOP)
+			return;
+	}
+
+	ly_set_free(set);
+}
+
 bool yang_dnode_is_default(const struct lyd_node *dnode, const char *xpath_fmt,
 			   ...)
 {
@@ -619,6 +645,34 @@ static void ly_log_cb(LY_LOG_LEVEL level, const char *msg, const char *path)
 		zlog(priority, "libyang: %s (%s)", msg, path);
 	else
 		zlog(priority, "libyang: %s", msg);
+}
+
+const char *yang_print_errors(struct ly_ctx *ly_ctx, char *buf, size_t buf_len)
+{
+	struct ly_err_item *ei;
+	const char *path;
+
+	ei = ly_err_first(ly_ctx);
+	if (!ei)
+		return "";
+
+	strlcpy(buf, "YANG error(s):\n", buf_len);
+	for (; ei; ei = ei->next) {
+		strlcat(buf, " ", buf_len);
+		strlcat(buf, ei->msg, buf_len);
+		strlcat(buf, "\n", buf_len);
+	}
+
+	path = ly_errpath(ly_ctx);
+	if (path) {
+		strlcat(buf, " YANG path: ", buf_len);
+		strlcat(buf, path, buf_len);
+		strlcat(buf, "\n", buf_len);
+	}
+
+	ly_err_clean(ly_ctx, NULL);
+
+	return buf;
 }
 
 void yang_debugging_set(bool enable)
