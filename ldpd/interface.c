@@ -668,7 +668,7 @@ ldp_sync_state_name(int state)
 }
 
 static int
-send_ldp_sync_state_update_msg(char *name, int ifindex, int sync_start)
+send_ldp_sync_state_update(char *name, int ifindex, int sync_start)
 {
 	debug_evt_ldp_sync("%s: interface %s (%d), sync_start=%d",
 		    __func__, name, ifindex, sync_start);
@@ -690,7 +690,7 @@ ldp_sync_act_iface_start_sync(struct iface *iface)
 		iface->name, iface->ifindex);
 #endif
 
-	send_ldp_sync_state_update_msg(iface->name, iface->ifindex, true);
+	send_ldp_sync_state_update(iface->name, iface->ifindex, true);
 
 	return (0);
 }
@@ -764,7 +764,7 @@ ldp_sync_act_ldp_complete_sync(struct iface *iface)
 		iface->name, iface->ifindex);
 #endif
 
-	send_ldp_sync_state_update_msg(iface->name, iface->ifindex, false);
+	send_ldp_sync_state_update(iface->name, iface->ifindex, false);
 
 	return 0;
 }
@@ -966,7 +966,7 @@ ldp_sync_fsm_state_req(struct ldp_igp_sync_if_state_req *state_req)
 		return 0;
 	}
 
-	return send_ldp_sync_state_update_msg(state_req->name,
+	return send_ldp_sync_state_update(state_req->name,
 		state_req->ifindex,
 		(iface->ldp_sync.state != LDP_SYNC_STA_ACH));
 }
@@ -984,7 +984,7 @@ ldp_sync_fsm_init(struct iface *iface, int state)
 	iface->ldp_sync.state = state;
 	stop_wait_for_ldp_sync_timer(iface);
 
-	send_ldp_sync_state_update_msg(iface->name, iface->ifindex,
+	send_ldp_sync_state_update(iface->name, iface->ifindex,
 		(iface->ldp_sync.state != LDP_SYNC_STA_ACH));
 
 	if (old_state != iface->ldp_sync.state)
