@@ -38,7 +38,9 @@ extern void ospf_ldp_sync_show_info(struct vty *, struct ospf *, json_object *,
 				    bool);
 extern void ospf_ldp_sync_write_config(struct vty *, struct ospf *);
 extern void ospf_ldp_sync_if_write_config(struct vty *, struct ospf_if_params *);
-extern int  ldp_igp_opaque_msg_handler(ZAPI_CALLBACK_ARGS);
+extern int ospf_ldp_sync_state_update(struct ldp_igp_sync_if_state);
+extern int ospf_ldp_sync_announce_update(struct ldp_igp_sync_announce);
+extern int ospf_ldp_sync_hello_update(struct ldp_igp_sync_hello);
 extern void ospf_ldp_sync_state_req_msg(struct interface *);
 extern void ospf_ldp_sync_announce_send_msg(bool);
 extern void ospf_ldp_sync_init(void);

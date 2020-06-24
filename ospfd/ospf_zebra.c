@@ -1723,6 +1723,42 @@ static void ospf_zebra_connected(struct zclient *zclient)
 
 }
 
+/*
+ * opaque messages between processes
+ */
+static int ospf_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
+{
+	uint32_t type;
+	struct ldp_igp_sync_if_state state;
+	struct ldp_igp_sync_announce announce;
+	struct ldp_igp_sync_hello hello;
+	struct stream *s;
+	int    ret = 0;
+
+	s = zclient->ibuf;
+	STREAM_GETL(s, type);
+
+	switch (type) {
+	case LDP_IGP_SYNC_IF_STATE_UPDATE:
+                STREAM_GET(&state, s, sizeof(state));
+		ret = ospf_ldp_sync_state_update (state);
+		break;
+	case LDP_IGP_SYNC_ANNOUNCE_UPDATE:
+		STREAM_GET(&announce, s, sizeof(announce));
+		ret = ospf_ldp_sync_announce_update(announce);
+		break;
+	case LDP_IGP_SYNC_HELLO_UPDATE:
+		STREAM_GET(&hello, s, sizeof(hello));
+		ret = ospf_ldp_sync_hello_update(hello);
+		break;
+	default:
+		break;
+	}
+
+stream_failure:
+
+        return ret;
+}
 
 void ospf_zebra_init(struct thread_master *master, unsigned short instance)
 {
@@ -1744,5 +1780,5 @@ void ospf_zebra_init(struct thread_master *master, unsigned short instance)
 	prefix_list_add_hook(ospf_prefix_list_update);
 	prefix_list_delete_hook(ospf_prefix_list_update);
 
-	zclient->opaque_msg_handler = ldp_igp_opaque_msg_handler;
+	zclient->opaque_msg_handler = ospf_opaque_msg_handler;
 }
