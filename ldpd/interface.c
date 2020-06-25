@@ -954,8 +954,9 @@ ldp_sync_fsm_nbr_event(struct nbr *nbr, enum ldp_sync_event event)
 int
 ldp_sync_fsm_state_req(struct ldp_igp_sync_if_state_req *state_req)
 {
-	debug_evt_ldp_sync("%s: interface %s (%d) ",
-		    __func__, state_req->name, state_req->ifindex);
+	debug_evt_ldp_sync("%s: interface %s (%d) proto %s",
+		__func__, state_req->name, state_req->ifindex,
+		zebra_route_string(state_req->proto));
 
 	struct iface *iface = if_lookup_name(leconf, state_req->name);
 
