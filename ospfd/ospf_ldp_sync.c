@@ -274,7 +274,7 @@ void ospf_ldp_sync_if_down(struct interface *ifp)
 	params = IF_DEF_PARAMS(ifp);
 	ldp_sync_info = params->ldp_sync_info;
 
-	if (ldp_sync_if_down(params->ldp_sync_info) == false)
+	if (ldp_sync_if_down(ldp_sync_info) == false)
 		return;
 
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
@@ -478,8 +478,7 @@ void ospf_if_set_ldp_sync_enable(struct ospf *ospf, struct interface *ifp)
 				LDP_IGP_SYNC_STATE_REQUIRED_NOT_UP;
 			ospf_ldp_sync_state_req_msg(ifp);
 		} else {
-			params->ldp_sync_info->state =
-				LDP_IGP_SYNC_STATE_NOT_REQUIRED;
+			ldp_sync_info->state = LDP_IGP_SYNC_STATE_NOT_REQUIRED;
 			zlog_debug("ldp_sync: Sync only runs on P2P links %s",
 				   ifp->name);
 		}
@@ -574,7 +573,7 @@ static void show_ip_ospf_mpls_ldp_interface_sub(struct vty *vty,
 			ldp_sync_info->holddown);
 	}
 
-	switch (params->ldp_sync_info->state) {
+	switch (ldp_sync_info->state) {
 	case LDP_IGP_SYNC_STATE_REQUIRED_UP:
 		if (use_json)
 			json_object_string_add(json_interface_sub,
