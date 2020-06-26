@@ -35,6 +35,7 @@
 #include "isis_lsp.h"
 #include "isis_memory.h"
 #include "qobj.h"
+#include "ldp_sync.h"
 
 #ifdef FABRICD
 static const bool fabricd = true;
@@ -78,6 +79,9 @@ struct isis {
 	uint32_t circuit_ids_used[8];     /* 256 bits to track circuit ids 1 through 255 */
 
 	struct route_table *ext_info[REDIST_PROTOCOL_COUNT];
+
+	/* MPLS LDP-IGP Sync */
+	struct ldp_sync_info_cmd ldp_sync_cmd;
 
 	QOBJ_FIELDS
 };
@@ -241,6 +245,7 @@ extern struct thread_master *master;
 #define DEBUG_BFD                        (1<<10)
 #define DEBUG_TX_QUEUE                   (1<<11)
 #define DEBUG_SR                         (1<<12)
+#define DEBUG_LDP_SYNC                   (1<<13)
 
 #define lsp_debug(...)                                                         \
 	do {                                                                   \
