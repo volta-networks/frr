@@ -59,6 +59,7 @@
 #include "isisd/isis_errors.h"
 #include "isisd/isis_tx_queue.h"
 #include "isisd/isis_nb.h"
+#include "isisd/isis_ldp_sync.h"
 
 DEFINE_QOBJ_TYPE(isis_circuit)
 
@@ -477,6 +478,9 @@ void isis_circuit_if_add(struct isis_circuit *circuit, struct interface *ifp)
 	circuit->ip_addrs = list_new();
 	circuit->ipv6_link = list_new();
 	circuit->ipv6_non_link = list_new();
+
+	/* if LDP-IGP Sync is configured globally inherit config */
+	isis_ldp_sync_if_init(circuit);
 
 	for (ALL_LIST_ELEMENTS(ifp->connected, node, nnode, conn))
 		isis_circuit_add_addr(circuit, conn);
