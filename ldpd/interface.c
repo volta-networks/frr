@@ -819,10 +819,15 @@ ldp_sync_fsm_adj_event(struct adj *adj, enum ldp_sync_event event)
 		return -1;
 
 #ifdef LDP_SYNC_FSM_DEBUG_VERBOSE
-	debug_evt_ldp_sync("%s: adj iface %s (%d), event %s",
-		    __func__, adj->source.link.ia->iface->name,
-		    adj->source.link.ia->iface->ifindex,
-		    ldp_sync_event_names[event]);
+	debug_evt_ldp_sync("%s: event %s, "
+		"adj iface %s (%d) lsr-id %s "
+		"source address %s transport address %s",
+		__func__, ldp_sync_event_names[event],
+		adj->source.link.ia->iface->name,
+		adj->source.link.ia->iface->ifindex,
+		inet_ntoa(adj->lsr_id),
+		log_addr(adj_get_af(adj), &adj->source.link.src_addr),
+		log_addr(adj_get_af(adj), &adj->trans_addr));
 #endif
 
 	struct iface *iface = adj->source.link.ia->iface;
@@ -880,6 +885,16 @@ ldp_sync_fsm_adj_event(struct adj *adj, enum ldp_sync_event event)
 		}
 	}
 
+	debug_evt_ldp_sync("%s: event %s, "
+		"adj iface %s (%d) lsr-id %s "
+		"source address %s transport address %s",
+		__func__, ldp_sync_event_names[event],
+		adj->source.link.ia->iface->name,
+		adj->source.link.ia->iface->ifindex,
+		inet_ntoa(adj->lsr_id),
+		log_addr(adj_get_af(adj), &adj->source.link.src_addr),
+		log_addr(adj_get_af(adj), &adj->trans_addr));
+
 	return ldp_sync_fsm(iface, event);
 }
 
@@ -887,10 +902,11 @@ int
 ldp_sync_fsm_nbr_event(struct nbr *nbr, enum ldp_sync_event event)
 {
 #ifdef LDP_SYNC_FSM_DEBUG_VERBOSE
-	debug_evt_ldp_sync("%s: lsr-id %s, event %s",
-		    __func__, inet_ntoa(nbr->id),
-		    ldp_sync_event_names[event]);
+	debug_evt_ldp_sync("%s: event %s, lsr-id %s",
+		__func__, ldp_sync_event_names[event],
+		inet_ntoa(nbr->id));
 #endif
+
 	struct adj      *adj;
 	struct iface 	*iface = NULL;
 	RB_FOREACH(adj, nbr_adj_head, &nbr->adj_tree)
@@ -923,6 +939,10 @@ ldp_sync_fsm_nbr_event(struct nbr *nbr, enum ldp_sync_event event)
 
 			continue;
 		}
+
+		debug_evt_ldp_sync("%s: event %s, iface %s, lsr-id %s",
+			__func__, ldp_sync_event_names[event],
+			iface->name, inet_ntoa(nbr->id));
 
 		ldp_sync_fsm(iface, event);
 	}
