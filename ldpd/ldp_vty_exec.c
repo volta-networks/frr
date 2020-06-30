@@ -237,7 +237,7 @@ show_ldp_sync_msg(struct vty *vty, struct imsg *imsg,
 		}
 
 		if (iface->peer_ldp_id.s_addr)
-			vty_out (vty, "    Peer LDP Ident: %s\n",
+			vty_out (vty, "    Peer LDP Identifier: %s:0\n",
 				inet_ntoa(iface->peer_ldp_id));
 
 		break;
