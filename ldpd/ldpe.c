@@ -995,6 +995,20 @@ ldpe_nbr_ctl(struct ctl_conn *c)
 }
 
 void
+ldpe_ldp_sync_ctl(struct ctl_conn *c)
+{
+	struct iface		*iface;
+	struct ctl_ldp_sync	*ictl;
+
+	RB_FOREACH(iface, iface_head, &leconf->iface_tree) {
+		ictl = ldp_sync_to_ctl(iface);
+		imsg_compose_event(&c->iev, IMSG_CTL_SHOW_LDP_SYNC,
+			0, 0, -1, ictl, sizeof(struct ctl_ldp_sync));
+	}
+	imsg_compose_event(&c->iev, IMSG_CTL_END, 0, 0, -1, NULL, 0);
+}
+
+void
 mapping_list_add(struct mapping_head *mh, struct map *map)
 {
 	struct mapping_entry	*me;

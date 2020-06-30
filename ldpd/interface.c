@@ -54,6 +54,8 @@ static int ldp_sync_act_ldp_complete_sync(struct iface *iface);
 static int iface_to_adj_count(struct iface *iface, unsigned int type);
 #endif /* #ifdef LDP_SYNC_FSM_DEBUG_VERBOSE */
 static int iface_to_oper_nbr_count(struct iface *iface, unsigned int type);
+static void ldp_sync_get_peer_ldp_id(struct iface *iface,
+	struct in_addr *peer_ldp_id);
 
 RB_GENERATE(iface_head, iface, entry, iface_compare)
 
@@ -513,6 +515,55 @@ if_to_ctl(struct iface_af *ia)
 	return (&ictl);
 }
 
+static void
+ldp_sync_get_peer_ldp_id(struct iface *iface, struct in_addr *peer_ldp_id)
+{
+	struct iface_af		*ia;
+	struct adj		*adj;
+
+	if (iface->ipv4.state == IF_STA_ACTIVE) {
+		ia = iface_af_get(iface, AF_INET);
+		RB_FOREACH(adj, ia_adj_head, &ia->adj_tree)
+			if (adj->nbr && adj->nbr->state == NBR_STA_OPER) {
+				*peer_ldp_id = adj->nbr->id;
+				return;
+			}
+        }
+
+	if (iface->ipv6.state == IF_STA_ACTIVE) {
+		ia = iface_af_get(iface, AF_INET6);
+		RB_FOREACH(adj, ia_adj_head, &ia->adj_tree)
+			if (adj->nbr && adj->nbr->state == NBR_STA_OPER) {
+				*peer_ldp_id = adj->nbr->id;
+				return;
+			}
+        }
+}
+
+struct ctl_ldp_sync *
+ldp_sync_to_ctl(struct iface *iface)
+{
+	static struct ctl_ldp_sync ictl;
+
+	memcpy(ictl.name, iface->name, sizeof(ictl.name));
+	ictl.ifindex = iface->ifindex;
+	ictl.in_sync = (iface->ldp_sync.state == LDP_SYNC_STA_ACH);
+	ictl.wait_time = if_get_wait_for_sync_interval();
+	ictl.timer_running = iface->ldp_sync.wait_for_sync_timer ? true : false;
+
+	if (iface->ldp_sync.wait_for_sync_timer)
+		ictl.wait_time_remaining =
+		thread_timer_remain_second(iface->ldp_sync.wait_for_sync_timer);
+	else
+		ictl.wait_time_remaining = 0;
+
+	memset(&ictl.peer_ldp_id, 0, sizeof(ictl.peer_ldp_id));
+
+	ldp_sync_get_peer_ldp_id(iface, &ictl.peer_ldp_id);
+
+	return (&ictl);
+}
+
 /* multicast membership sockopts */
 in_addr_t
 if_get_ipv4_addr(struct iface *iface)
@@ -719,7 +770,7 @@ static void start_wait_for_ldp_sync_timer(struct iface *iface)
 		iface->name, iface->ifindex);
 #endif
 
-	if (iface->ldp_sync.wait_for_ldp_sync_timer)
+	if (iface->ldp_sync.wait_for_sync_timer)
 	{
 #ifdef LDP_SYNC_FSM_DEBUG_VERBOSE
 		debug_evt_ldp_sync("%s: interface %s, timer already running",
@@ -727,11 +778,11 @@ static void start_wait_for_ldp_sync_timer(struct iface *iface)
 #endif
 		return;
 	}
-	THREAD_TIMER_OFF(iface->ldp_sync.wait_for_ldp_sync_timer);
-	iface->ldp_sync.wait_for_ldp_sync_timer = NULL;
+	THREAD_TIMER_OFF(iface->ldp_sync.wait_for_sync_timer);
+	iface->ldp_sync.wait_for_sync_timer = NULL;
 	thread_add_timer(master, iface_wait_for_ldp_sync_timer, iface,
 			if_get_wait_for_sync_interval(),
-			&iface->ldp_sync.wait_for_ldp_sync_timer);
+			&iface->ldp_sync.wait_for_sync_timer);
 }
 
 static void stop_wait_for_ldp_sync_timer(struct iface *iface)
@@ -741,8 +792,8 @@ static void stop_wait_for_ldp_sync_timer(struct iface *iface)
 		iface->name, iface->ifindex);
 #endif
 
-	THREAD_TIMER_OFF(iface->ldp_sync.wait_for_ldp_sync_timer);
-	iface->ldp_sync.wait_for_ldp_sync_timer = NULL;
+	THREAD_TIMER_OFF(iface->ldp_sync.wait_for_sync_timer);
+	iface->ldp_sync.wait_for_sync_timer = NULL;
 }
 
 static int
