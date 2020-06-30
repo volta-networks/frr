@@ -264,12 +264,16 @@ show_ldp_sync_msg_json(struct imsg *imsg, struct show_params *params,
 		json_iface = json_object_new_object();
 		json_object_string_add(json_iface, "state",
 		    iface->in_sync ? "syncAchieved" : "syncNotAchieved");
-		json_object_string_add(json_iface, "timerRunning",
-		    iface->timer_running ? "true" : "false");
 		json_object_int_add(json_iface, "waitTime",
 		    iface->wait_time);
 		json_object_int_add(json_iface, "waitTimeRemaining",
 		    iface->wait_time_remaining);
+
+		if (iface->timer_running)
+			json_object_boolean_true_add(json_iface, "timerRunning");
+		else
+			json_object_boolean_false_add(json_iface, "timerRunning");
+
 		json_object_string_add(json_iface, "peerLdpId",
 		    iface->peer_ldp_id.s_addr ?
 		    inet_ntoa(iface->peer_ldp_id) : "");
