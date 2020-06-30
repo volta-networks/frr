@@ -94,6 +94,7 @@ enum imsg_type {
 	IMSG_CTL_SHOW_LIB_END,
 	IMSG_CTL_SHOW_L2VPN_PW,
 	IMSG_CTL_SHOW_L2VPN_BINDING,
+	IMSG_CTL_SHOW_LDP_SYNC,
 	IMSG_CTL_CLEAR_NBR,
 	IMSG_CTL_FIB_COUPLE,
 	IMSG_CTL_FIB_DECOUPLE,
@@ -343,7 +344,7 @@ struct iface_af {
 
 struct iface_ldp_sync {
 	int			 state;
-	struct thread           *wait_for_ldp_sync_timer;
+	struct thread           *wait_for_sync_timer;
 };
 
 struct iface {
@@ -708,6 +709,16 @@ struct ctl_pw {
 	uint8_t			 remote_cword;
 	uint32_t		 status;
 	uint8_t			 reason;
+};
+
+struct ctl_ldp_sync {
+	char			 name[IF_NAMESIZE];
+	ifindex_t		 ifindex;
+	bool			 in_sync;
+	bool			 timer_running;
+	uint16_t		 wait_time;
+	uint16_t		 wait_time_remaining;
+	struct in_addr		 peer_ldp_id;
 };
 
 extern struct ldpd_conf		*ldpd_conf, *vty_conf;

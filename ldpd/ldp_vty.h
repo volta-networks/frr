@@ -74,6 +74,7 @@ int	 ldp_vty_show_discovery(struct vty *, const char *, const char *, const char
 int	 ldp_vty_show_interface(struct vty *, const char *, const char *);
 int	 ldp_vty_show_capabilities(struct vty *, const char *);
 int	 ldp_vty_show_neighbor(struct vty *, const char *, int, const char *, const char *);
+int	 ldp_vty_show_ldp_sync(struct vty *, const char *);
 int	 ldp_vty_show_atom_binding(struct vty *, const char *, unsigned long,
 	    unsigned long, const char *);
 int	 ldp_vty_show_atom_vc(struct vty *, const char *, const char *,

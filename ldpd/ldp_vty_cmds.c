@@ -704,6 +704,18 @@ DEFPY  (ldp_show_mpls_ldp_neighbor_capabilities,
 	return (ldp_vty_show_neighbor(vty, lsr_id_str, 1, NULL, json));
 }
 
+DEFPY  (ldp_show_mpls_ldp_igp_sync,
+	ldp_show_mpls_ldp_igp_sync_cmd,
+	"show mpls ldp igp-sync [json]$json",
+	"Show mpls ldp ldp-sync information\n"
+	"MPLS information\n"
+	"Label Distribution Protocol\n"
+	"LDP-IGP Sync information\n"
+	JSON_STR)
+{
+	return (ldp_vty_show_ldp_sync(vty, json));
+}
+
 DEFPY  (ldp_show_l2vpn_atom_binding,
 	ldp_show_l2vpn_atom_binding_cmd,
 	"show l2vpn atom binding\
@@ -898,4 +910,5 @@ ldp_vty_init (void)
 	install_element(VIEW_NODE, &ldp_show_l2vpn_atom_binding_cmd);
 	install_element(VIEW_NODE, &ldp_show_l2vpn_atom_vc_cmd);
 	install_element(VIEW_NODE, &ldp_show_debugging_mpls_ldp_cmd);
+	install_element(VIEW_NODE, &ldp_show_mpls_ldp_igp_sync_cmd);
 }
