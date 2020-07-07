@@ -555,8 +555,8 @@ static void show_ip_ospf_mpls_ldp_interface_sub(struct vty *vty,
 			json_object_boolean_true_add(json_interface_sub,
 						     "ldpIgpSyncEnabled");
 		else
-			json_object_boolean_true_add(json_interface_sub,
-						     "ldpIgpSyncDisabled");
+			json_object_boolean_false_add(json_interface_sub,
+						     "ldpIgpSyncEnabled");
 
 		json_object_int_add(json_interface_sub, "holdDownTimeInSec",
 				    ldp_sync_info->holddown);
@@ -674,7 +674,7 @@ static int show_ip_ospf_mpls_ldp_interface_common(struct vty *vty,
 			struct route_node *rn;
 			struct ospf_interface *oi;
 
-			if (ospf_oi_count(ifp) == 0) {
+			if (ospf_oi_count(ifp) == 0 && !use_json) {
 				vty_out(vty,
 					"  OSPF not enabled on this interface %s\n",
 					ifp->name);
