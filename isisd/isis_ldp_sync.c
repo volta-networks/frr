@@ -228,7 +228,8 @@ void isis_ldp_sync_if_init(struct isis_circuit *circuit)
 	if (!CHECK_FLAG(ldp_sync_info->flags, LDP_SYNC_FLAG_IF_CONFIG))
 		ldp_sync_info->enabled = LDP_IGP_SYNC_ENABLED;
 
-	if (circuit->circ_type == CIRCUIT_T_P2P &&
+	if ((circuit->circ_type == CIRCUIT_T_P2P ||
+	     if_is_pointopoint(circuit->interface)) &&
 	    ldp_sync_info->enabled == LDP_IGP_SYNC_ENABLED)
 		ldp_sync_info->state = LDP_IGP_SYNC_STATE_REQUIRED_NOT_UP;
 }
@@ -331,7 +332,8 @@ static int isis_ldp_sync_adj_state_change(struct isis_adjacency *adj)
 		return 0;
 
 	if (adj->adj_state == ISIS_ADJ_UP) {
-		if (circuit->circ_type == CIRCUIT_T_P2P) {
+		if (circuit->circ_type == CIRCUIT_T_P2P ||
+		    if_is_pointopoint(circuit->interface)) {
 			/* If LDP-SYNC is configure on interface then start */
 			ldp_sync_info->state =
 				LDP_IGP_SYNC_STATE_REQUIRED_NOT_UP;
@@ -375,7 +377,7 @@ void isis_ldp_sync_set_if_metric(struct isis_circuit *circuit)
 				circuit->te_metric[0] = LDP_ISIS_LSINFINITY;
 			} else {
 				ldp_sync_info->metric[0] = circuit->metric[0];
-				circuit->metric[0] = MAX_NARROW_LINK_METRIC;
+				circuit->metric[0] = LDP_ISIS_LSINFINITY_NL;
 			}
 		}
 		if (circuit->is_type & IS_LEVEL_2) {
@@ -384,7 +386,7 @@ void isis_ldp_sync_set_if_metric(struct isis_circuit *circuit)
 				circuit->te_metric[1] = LDP_ISIS_LSINFINITY;
 			} else {
 				ldp_sync_info->metric[1] = circuit->metric[1];
-				circuit->metric[1] = MAX_NARROW_LINK_METRIC;
+				circuit->metric[1] = LDP_ISIS_LSINFINITY_NL;
 			}
 		}
 
@@ -536,7 +538,8 @@ void isis_if_set_ldp_sync_enable(struct isis_circuit *circuit)
 				circuit->interface->name);
 
 		/* send message to LDP if ptop link */
-		if (circuit->circ_type == CIRCUIT_T_P2P) {
+		if (circuit->circ_type == CIRCUIT_T_P2P ||
+		    if_is_pointopoint(circuit->interface)) {
 			ldp_sync_info->state =
 				LDP_IGP_SYNC_STATE_REQUIRED_NOT_UP;
 			isis_ldp_sync_state_req_msg(circuit);
@@ -612,7 +615,8 @@ static void isis_circuit_ldp_sync_print_vty(struct isis_circuit *circuit,
 		break;
 	case LDP_IGP_SYNC_STATE_NOT_REQUIRED:
 	default:
-		if (circuit->circ_type != CIRCUIT_T_P2P &&
+		if ((circuit->circ_type != CIRCUIT_T_P2P &&
+		     !if_is_pointopoint(circuit->interface)) &&
 		    circuit->circ_type != CIRCUIT_T_UNKNOWN)
 			ldp_state = "Sync not required: non-p2p link";
 		else
