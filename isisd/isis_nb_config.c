@@ -1844,7 +1844,7 @@ int isis_instance_mpls_ldp_sync_create(struct nb_cb_create_args *args)
 	if (!CHECK_FLAG(isis->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE)) {
 		SET_FLAG(isis->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE);
 
-		/* turn on LDP-IGP Sync on all ptop OSPF interfaces */
+		/* turn on LDP-IGP Sync on all ptop ISIS interfaces */
 		FOR_ALL_INTERFACES (vrf, ifp) {
 			for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
 				circuit = circuit_lookup_by_ifp(ifp,
@@ -2720,7 +2720,6 @@ int lib_interface_isis_mpls_ldp_sync_modify(struct nb_cb_modify_args *args)
 		ldp_sync_info->t_holddown = NULL;
 		//ospf_if_recalculate_output_cost(ifp);
 	}
-	return CMD_SUCCESS;
 
 	return NB_OK;
 }

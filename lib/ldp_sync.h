@@ -27,9 +27,10 @@ extern "C" {
 #endif
 
 /* LDP-IGP Sync values */
-#define LDP_SYNC_FLAG_ENABLE    (1 << 0) /* parameters have been configured */
-#define LDP_SYNC_FLAG_HOLDDOWN  (1 << 1) /* parameters have been configured */
-#define LDP_SYNC_FLAG_IF_CONFIG (1 << 2) /* parameters have been configured */
+#define LDP_SYNC_FLAG_ENABLE     (1 << 0) /* LDP-SYNC enabled */
+#define LDP_SYNC_FLAG_HOLDDOWN   (1 << 1) /* Holddown timer enabled */
+#define LDP_SYNC_FLAG_IF_CONFIG  (1 << 2) /* LDP-SYNC enabled on interface */
+#define LDP_SYNC_FLAG_SET_METRIC (1 << 3) /* Metric has been set on ISIS intf */
 
 #define LDP_IGP_SYNC_DEFAULT        0
 #define LDP_IGP_SYNC_ENABLED        1
@@ -56,6 +57,7 @@ struct ldp_sync_info {
 	uint8_t state;           /* running state */
 	uint16_t holddown;       /* timer value */
 	struct thread *t_holddown; /* holddown timer*/
+	uint32_t metric[2];      /* isis interface metric */
 };
 
 /* Prototypes. */
