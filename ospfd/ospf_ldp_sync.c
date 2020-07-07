@@ -190,7 +190,8 @@ void ospf_ldp_sync_if_init(struct ospf_interface *oi)
 	if (!CHECK_FLAG(ldp_sync_info->flags, LDP_SYNC_FLAG_IF_CONFIG))
 		ldp_sync_info->enabled = LDP_IGP_SYNC_ENABLED;
 
-	if (params->type == OSPF_IFTYPE_POINTOPOINT &&
+	if ((params->type == OSPF_IFTYPE_POINTOPOINT ||
+	     if_is_pointopoint(oi->ifp)) &&
 	    ldp_sync_info->enabled == LDP_IGP_SYNC_ENABLED)
 		ldp_sync_info->state = LDP_IGP_SYNC_STATE_REQUIRED_NOT_UP;
 }
@@ -288,14 +289,16 @@ void ospf_ldp_sync_if_down(struct interface *ifp)
 	switch (ldp_sync_info->state) {
 	case LDP_IGP_SYNC_STATE_REQUIRED_NOT_UP:
 	case LDP_IGP_SYNC_STATE_REQUIRED_UP:
-		if (params->type != OSPF_IFTYPE_POINTOPOINT) {
+		if (params->type != OSPF_IFTYPE_POINTOPOINT &&
+		    !if_is_pointopoint(ifp)) {
 			/* LDP-SYNC not able to run on non-ptop interface */
 			ldp_sync_info->state = LDP_IGP_SYNC_STATE_NOT_REQUIRED;
 			ospf_if_recalculate_output_cost(ifp);
 		}
 		break;
 	case LDP_IGP_SYNC_STATE_NOT_REQUIRED:
-		if (params->type == OSPF_IFTYPE_POINTOPOINT)
+		if (params->type == OSPF_IFTYPE_POINTOPOINT ||
+		    if_is_pointopoint(ifp))
 			/* LDP-SYNC is able to run on ptop interface */
 			ldp_sync_info->state =
 				LDP_IGP_SYNC_STATE_REQUIRED_NOT_UP;
@@ -471,7 +474,8 @@ void ospf_if_set_ldp_sync_enable(struct ospf *ospf, struct interface *ifp)
 			zlog_debug("ldp_sync: enable if %s", ifp->name);
 
 		/* send message to LDP if ptop link */
-		if (params->type == OSPF_IFTYPE_POINTOPOINT) {
+		if (params->type == OSPF_IFTYPE_POINTOPOINT ||
+		    if_is_pointopoint(ifp)) {
 			ldp_sync_info->state =
 				LDP_IGP_SYNC_STATE_REQUIRED_NOT_UP;
 			ospf_ldp_sync_state_req_msg(ifp);
@@ -615,7 +619,8 @@ static void show_ip_ospf_mpls_ldp_interface_sub(struct vty *vty,
 		break;
 	case LDP_IGP_SYNC_STATE_NOT_REQUIRED:
 	default:
-		if (IF_DEF_PARAMS(ifp)->type != OSPF_IFTYPE_POINTOPOINT)
+		if (IF_DEF_PARAMS(ifp)->type != OSPF_IFTYPE_POINTOPOINT &&
+		    !if_is_pointopoint(ifp))
 			ldp_state = "Sync not required: non-p2p link";
 		else
 			ldp_state = "Sync not required";
@@ -869,7 +874,7 @@ DEFPY (mpls_ldp_sync,
 
 	SET_FLAG(ldp_sync_info->flags, LDP_SYNC_FLAG_IF_CONFIG);
 	ldp_sync_info->enabled = LDP_IGP_SYNC_ENABLED;
-	if (params->type == OSPF_IFTYPE_POINTOPOINT) {
+	if (params->type == OSPF_IFTYPE_POINTOPOINT || if_is_pointopoint(ifp)) {
 		ldp_sync_info->state = LDP_IGP_SYNC_STATE_REQUIRED_NOT_UP;
 		ospf_ldp_sync_state_req_msg(ifp);
 	} else {
@@ -900,7 +905,6 @@ DEFPY (no_mpls_ldp_sync,
 	/* disable LDP-SYNC on an interface
          *  stop holddown timer if running
          *  restore ospf cost
-         *  send message to LDP
          */
 	SET_FLAG(ldp_sync_info->flags, LDP_SYNC_FLAG_IF_CONFIG);
 	ldp_sync_info->enabled = LDP_IGP_SYNC_DEFAULT;

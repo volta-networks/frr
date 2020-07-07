@@ -22,7 +22,8 @@
 #ifndef _ZEBRA_ISIS_LDP_SYNC_H
 #define _ZEBRA_ISIS_LDP_SYNC_H
 
-#define LDP_ISIS_LSINFINITY 65535
+#define LDP_ISIS_LSINFINITY 0xFFFFFE  /* wide link metric */
+#define LDP_ISIS_LSINFINITY_NL 62     /* narrow link metric */
 
 extern void isis_if_set_ldp_sync_enable(struct isis_circuit *);
 extern void isis_if_set_ldp_sync_holddown(struct  isis_circuit *);

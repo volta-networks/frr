@@ -2684,7 +2684,7 @@ int lib_interface_isis_mpls_ldp_sync_modify(struct nb_cb_modify_args *args)
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
-	flog_err(EC_LIB_NB_CB_CONFIG_APPLY,"ldp_sync: %s ",__func__);
+
 	circuit = nb_running_get_entry(args->dnode, NULL, true);
 	ldp_sync_enable = yang_dnode_get_bool(args->dnode, NULL);
 
@@ -2710,15 +2710,14 @@ int lib_interface_isis_mpls_ldp_sync_modify(struct nb_cb_modify_args *args)
 	} else {
 		/* disable LDP-SYNC on an interface
 		 *  stop holddown timer if running
-		 *  restore ospf cost
-		 *  send message to LDP
+		 *  restore isis metric
 		 */
 		SET_FLAG(ldp_sync_info->flags, LDP_SYNC_FLAG_IF_CONFIG);
 		ldp_sync_info->enabled = LDP_IGP_SYNC_DEFAULT;
 		ldp_sync_info->state = LDP_IGP_SYNC_STATE_NOT_REQUIRED;
 		THREAD_TIMER_OFF(ldp_sync_info->t_holddown);
 		ldp_sync_info->t_holddown = NULL;
-		//ospf_if_recalculate_output_cost(ifp);
+		isis_ldp_sync_set_if_metric(circuit);
 	}
 
 	return NB_OK;
