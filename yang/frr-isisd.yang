@@ -604,7 +604,7 @@ module frr-isisd {
 	"Configuration of MPLS parameters";
       leaf ldp-sync {
         type boolean;
-        default "false";
+        default "true";
         description
           "Enable MPLS LDP-Sync functionality on this circuit.";
       }

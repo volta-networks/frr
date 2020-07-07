@@ -574,28 +574,29 @@ static void isis_zebra_connected(struct zclient *zclient)
  */
 static int isis_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 {
-	uint32_t type;
+	struct stream *s;
+	struct zapi_opaque_msg info;
 	struct ldp_igp_sync_if_state state;
 	struct ldp_igp_sync_announce announce;
 	struct ldp_igp_sync_hello hello;
-	struct stream *s;
 	int    ret = 0;
 
 	s = zclient->ibuf;
-	STREAM_GETL(s, type);
+	if (zclient_opaque_decode(s, &info) != 0)
+		return -1;
 
-	switch (type) {
+	switch (info.type) {
 	case LDP_IGP_SYNC_IF_STATE_UPDATE:
                 STREAM_GET(&state, s, sizeof(state));
 		ret = isis_ldp_sync_state_update (state);
 		break;
 	case LDP_IGP_SYNC_ANNOUNCE_UPDATE:
 		STREAM_GET(&announce, s, sizeof(announce));
-		//	ret = isis_ldp_sync_announce_update(announce);
+		ret = isis_ldp_sync_announce_update(announce);
 		break;
 	case LDP_IGP_SYNC_HELLO_UPDATE:
 		STREAM_GET(&hello, s, sizeof(hello));
-		//	ret = isis_ldp_sync_hello_update(hello);
+		ret = isis_ldp_sync_hello_update(hello);
 		break;
 	default:
 		break;

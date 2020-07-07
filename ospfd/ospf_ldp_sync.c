@@ -71,9 +71,9 @@ int ospf_ldp_sync_state_update(struct ldp_igp_sync_if_state state)
 			   : "sync-complete",
 			   ifp->name);
 	if (state.sync_start)
-		ospf_ldp_sync_if_sync_start(ifp, false);
+		ospf_ldp_sync_if_start(ifp, false);
 	else
-		ospf_ldp_sync_if_sync_complete(ifp);
+		ospf_ldp_sync_if_complete(ifp);
 
 	return 0;
 }
@@ -103,7 +103,7 @@ int ospf_ldp_sync_announce_update(struct ldp_igp_sync_announce announce)
 	 */
 	vrf = vrf_lookup_by_id(ospf->vrf_id);
 	FOR_ALL_INTERFACES (vrf, ifp)
-		ospf_ldp_sync_if_sync_start(ifp, true);
+		ospf_ldp_sync_if_start(ifp, true);
 
 	THREAD_TIMER_OFF(ospf->ldp_sync_cmd.t_hello);
 	ospf->ldp_sync_cmd.t_hello = NULL;
@@ -144,7 +144,7 @@ int ospf_ldp_sync_hello_update(struct ldp_igp_sync_hello hello)
 
 		vrf = vrf_lookup_by_id(ospf->vrf_id);
 		FOR_ALL_INTERFACES (vrf, ifp)
-			ospf_ldp_sync_if_sync_start(ifp, true);
+			ospf_ldp_sync_if_start(ifp, true);
 	} else {
 		THREAD_TIMER_OFF(ospf->ldp_sync_cmd.t_hello);
 		ospf_ldp_sync_hello_timer_add(ospf);
@@ -195,7 +195,7 @@ void ospf_ldp_sync_if_init(struct ospf_interface *oi)
 		ldp_sync_info->state = LDP_IGP_SYNC_STATE_REQUIRED_NOT_UP;
 }
 
-void ospf_ldp_sync_if_sync_start(struct interface *ifp, bool send_state_req)
+void ospf_ldp_sync_if_start(struct interface *ifp, bool send_state_req)
 {
 	struct ospf_if_params *params;
 	struct ldp_sync_info *ldp_sync_info;
@@ -224,7 +224,7 @@ void ospf_ldp_sync_if_sync_start(struct interface *ifp, bool send_state_req)
 	}
 }
 
-void ospf_ldp_sync_if_sync_complete(struct interface *ifp)
+void ospf_ldp_sync_if_complete(struct interface *ifp)
 {
 	struct ospf_if_params *params;
 	struct ldp_sync_info *ldp_sync_info;
@@ -326,7 +326,7 @@ void ospf_ldp_sync_if_remove(struct interface *ifp)
 	}
 	ospf_if_recalculate_output_cost(ifp);
 
-	ldp_sync_info_free((struct ldp_sync_info **)&(params->ldp_sync_info));
+	ldp_sync_info_free((struct ldp_sync_info **)&(ldp_sync_info));
 
 }
 
@@ -337,7 +337,7 @@ static int ospf_ldp_sync_ism_change(struct ospf_interface *oi, int state,
 	switch (state) {
 	case ISM_PointToPoint:
 		/* If LDP-SYNC is configure on interface then start */
-		ospf_ldp_sync_if_sync_start(oi->ifp, true);
+		ospf_ldp_sync_if_start(oi->ifp, true);
 		break;
 	case ISM_Down:
 		/* If LDP-SYNC is configure on this interface then stop it */
@@ -398,7 +398,6 @@ void ospf_ldp_sync_holddown_timer_add(struct interface *ifp)
 		zlog_debug("ldp_sync: start holddown timer for %s time %d",
 			   ifp->name, ldp_sync_info->holddown);
 
-	/* Set timer. */
 	thread_add_timer(master, ospf_ldp_sync_holddown_timer,
 			 ifp, ldp_sync_info->holddown,
 			 &ldp_sync_info->t_holddown);
@@ -439,7 +438,6 @@ void ospf_ldp_sync_hello_timer_add(struct ospf *ospf)
 	if (!CHECK_FLAG(ospf->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE))
 		return;
 
-	/* Set timer. */
 	thread_add_timer(master, ospf_ldp_sync_hello_timer,
 			 NULL, LDP_IGP_SYNC_HELLO_TIMEOUT,
 			 &ospf->ldp_sync_cmd.t_hello);
@@ -569,7 +567,7 @@ static void show_ip_ospf_mpls_ldp_interface_sub(struct vty *vty,
 			ldp_sync_info->enabled == LDP_IGP_SYNC_ENABLED
 			? "yes"
 			: "no");
-		vty_out(vty,"  holddown timer in seconds: %u\n",
+		vty_out(vty,"  Holddown timer in seconds: %u\n",
 			ldp_sync_info->holddown);
 	}
 
@@ -967,7 +965,7 @@ DEFPY (no_mpls_ldp_sync_holddown,
 
 DEFPY (show_ip_ospf_mpls_ldp_interface,
        show_ip_ospf_mpls_ldp_interface_cmd,
-       "show ip ospf mpls ldp [interface <INTERFACE|all>] [json]",
+       "show ip ospf mpls ldp-sync [interface <INTERFACE|all>] [json]",
        SHOW_STR
        IP_STR
        "OSPF information\n"

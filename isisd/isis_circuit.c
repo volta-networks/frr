@@ -1303,6 +1303,7 @@ ferr_r isis_circuit_metric_set(struct isis_circuit *circuit, int level,
 	circuit->te_metric[level - 1] = metric;
 	circuit->metric[level - 1] = metric;
 
+zlog_debug("ldp_sync: set metric %d circuit->metric %d ",metric, circuit->metric[level-1]);
 	if (circuit->area)
 		lsp_regenerate_schedule(circuit->area, level, 0);
 	return ferr_ok();

@@ -29,16 +29,14 @@ extern void isis_if_set_ldp_sync_holddown(struct  isis_circuit *);
 extern void isis_ldp_sync_if_init(struct isis_circuit *);
 extern void isis_ldp_sync_if_start(struct isis_circuit *, bool);
 extern void isis_ldp_sync_if_remove(struct isis_circuit *);
-extern void isis_ldp_sync_if_down(struct isis_circuit *);
 extern void isis_ldp_sync_if_complete(struct isis_circuit *);
 extern void isis_ldp_sync_holddown_timer_add(struct isis_circuit *);
 extern void isis_ldp_sync_hello_timer_add(void);
 extern void isis_ldp_sync_ldp_fail(struct isis_circuit *);
-//extern void isis_ldp_sync_write_config(struct vty *, struct ospf *);
-//extern void isis_ldp_sync_if_write_config(struct vty *, struct ospf_if_params *);
 extern int isis_ldp_sync_state_update(struct ldp_igp_sync_if_state);
 extern int isis_ldp_sync_announce_update(struct ldp_igp_sync_announce);
 extern int isis_ldp_sync_hello_update(struct ldp_igp_sync_hello);
 extern void isis_ldp_sync_state_req_msg(struct isis_circuit *);
+extern void isis_ldp_sync_set_if_metric(struct isis_circuit *);
 extern void isis_ldp_sync_init(void);
 #endif /* _ZEBRA_ISIS_LDP_SYNC_H */
