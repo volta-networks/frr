@@ -290,6 +290,11 @@ def test_ospf_ldp_sync():
             rname, "show ip ospf mpls ldp-sync json", "show_ospf_ldp_sync.ref"
         )
 
+    for rname in ["r1", "r2", "r3"]:
+        router_compare_json_output(
+            rname, "show ip ospf interface json", "show_ip_ospf_interface.ref"
+        )
+
 
 def test_r1_eth1_shutdown():
     logger.info("Test: verify behaviour after r1-eth1 is shutdown")
@@ -320,6 +325,11 @@ def test_r1_eth1_shutdown():
             rname, "show ip ospf mpls ldp-sync json", "show_ospf_ldp_sync_r1_eth1_shutdown.ref"
         )
 
+    for rname in ["r1", "r2", "r3"]:
+        router_compare_json_output(
+            rname, "show ip ospf interface json", "show_ip_ospf_interface_r1_eth1_shutdown.ref"
+        )
+
 def test_r1_eth1_no_shutdown():
     logger.info("Test: verify behaviour after r1-eth1 is no shutdown")
     tgen = get_topogen()
@@ -341,6 +351,11 @@ def test_r1_eth1_no_shutdown():
     for rname in ["r1", "r2", "r3"]:
         router_compare_json_output(
             rname, "show ip ospf mpls ldp-sync json", "show_ospf_ldp_sync.ref"
+        )
+
+    for rname in ["r1", "r2", "r3"]:
+        router_compare_json_output(
+            rname, "show ip ospf interface json", "show_ip_ospf_interface.ref"
         )
 
 def test_r2_eth1_shutdown():
@@ -366,6 +381,11 @@ def test_r2_eth1_shutdown():
             rname, "show ip ospf mpls ldp-sync json", "show_ospf_ldp_sync_r2_eth1_shutdown.ref"
         )
 
+    for rname in ["r1", "r2", "r3"]:
+        router_compare_json_output(
+            rname, "show ip ospf interface json", "show_ip_ospf_interface_r2_eth1_shutdown.ref"
+        )
+
 def test_r2_eth1_no_shutdown():
     logger.info("Test: verify behaviour after r2-eth1 is no shutdown")
     tgen = get_topogen()
@@ -387,6 +407,11 @@ def test_r2_eth1_no_shutdown():
     for rname in ["r1", "r2", "r3"]:
         router_compare_json_output(
             rname, "show ip ospf mpls ldp-sync json", "show_ospf_ldp_sync.ref"
+        )
+
+    for rname in ["r1", "r2", "r3"]:
+        router_compare_json_output(
+            rname, "show ip ospf interface json", "show_ip_ospf_interface.ref"
         )
 
 # Memory leak test template
