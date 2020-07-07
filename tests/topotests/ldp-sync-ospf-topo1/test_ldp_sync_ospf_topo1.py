@@ -287,12 +287,12 @@ def test_ospf_ldp_sync():
 
     for rname in ["r1", "r2", "r3"]:
         router_compare_json_output(
-            rname, "show ip ospf mpls ldp json", "show_ospf_ldp_sync.ref"
+            rname, "show ip ospf mpls ldp-sync json", "show_ospf_ldp_sync.ref"
         )
 
 
-def test_ldp_pseudowires_after_link_down():
-    logger.info("Test: verify LDP pseudowires after r1-r2 link goes down")
+def test_r1_eth1_shutdown():
+    logger.info("Test: verify behaviour after r1-eth1 is shutdown")
     tgen = get_topogen()
 
     # Skip if previous fatal error condition is raised
@@ -310,6 +310,84 @@ def test_ldp_pseudowires_after_link_down():
             rname, "show l2vpn atom vc json", "show_l2vpn_vc.ref"
         )
 
+    for rname in ["r1", "r2", "r3"]:
+        router_compare_json_output(
+            rname, "show mpls ldp igp-sync json", "show_ldp_igp_sync_r1_eth1_shutdown.ref"
+        )
+
+    for rname in ["r1", "r2", "r3"]:
+        router_compare_json_output(
+            rname, "show ip ospf mpls ldp-sync json", "show_ospf_ldp_sync_r1_eth1_shutdown.ref"
+        )
+
+def test_r1_eth1_no_shutdown():
+    logger.info("Test: verify behaviour after r1-eth1 is no shutdown")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # Run no shutdown on r1-eth1 interface */
+    tgen = get_topogen()
+    tgen.gears["r1"].peer_link_enable("r1-eth1", True)
+    topotest.sleep(5, "Waiting for the network to reconverge")
+
+    for rname in ["r1", "r2", "r3"]:
+        router_compare_json_output(
+            rname, "show mpls ldp igp-sync json", "show_ldp_igp_sync.ref"
+        )
+
+    for rname in ["r1", "r2", "r3"]:
+        router_compare_json_output(
+            rname, "show ip ospf mpls ldp-sync json", "show_ospf_ldp_sync.ref"
+        )
+
+def test_r2_eth1_shutdown():
+    logger.info("Test: verify behaviour after r2-eth1 is shutdown")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # Shut down r1-r2 link */
+    tgen = get_topogen()
+    tgen.gears["r2"].peer_link_enable("r2-eth1", False)
+    topotest.sleep(5, "Waiting for the network to reconverge")
+
+    for rname in ["r1", "r2", "r3"]:
+        router_compare_json_output(
+            rname, "show mpls ldp igp-sync json", "show_ldp_igp_sync_r1_eth1_shutdown.ref"
+        )
+
+    for rname in ["r1", "r2", "r3"]:
+        router_compare_json_output(
+            rname, "show ip ospf mpls ldp-sync json", "show_ospf_ldp_sync_r2_eth1_shutdown.ref"
+        )
+
+def test_r2_eth1_no_shutdown():
+    logger.info("Test: verify behaviour after r2-eth1 is no shutdown")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # Run no shutdown on r2-eth1 interface */
+    tgen = get_topogen()
+    tgen.gears["r2"].peer_link_enable("r2-eth1", True)
+    topotest.sleep(5, "Waiting for the network to reconverge")
+
+    for rname in ["r1", "r2", "r3"]:
+        router_compare_json_output(
+            rname, "show mpls ldp igp-sync json", "show_ldp_igp_sync.ref"
+        )
+
+    for rname in ["r1", "r2", "r3"]:
+        router_compare_json_output(
+            rname, "show ip ospf mpls ldp-sync json", "show_ospf_ldp_sync.ref"
+        )
 
 # Memory leak test template
 def test_memory_leak():
