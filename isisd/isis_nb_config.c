@@ -2742,13 +2742,32 @@ int lib_interface_isis_mpls_holddown_modify(struct nb_cb_modify_args *args)
 		circuit->ldp_sync_info = ldp_sync_info_create();
 	ldp_sync_info = circuit->ldp_sync_info;
 
-	if (holddown == LDP_IGP_SYNC_HOLDDOWN_DEFAULT) {
-		UNSET_FLAG(ldp_sync_info->flags, LDP_SYNC_FLAG_HOLDDOWN);
+	SET_FLAG(ldp_sync_info->flags, LDP_SYNC_FLAG_HOLDDOWN);
+	ldp_sync_info->holddown = holddown;
+
+	return NB_OK;
+}
+
+int lib_interface_isis_mpls_holddown_destroy(struct nb_cb_destroy_args *args)
+{
+	struct isis_circuit *circuit;
+	struct ldp_sync_info *ldp_sync_info;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	circuit = nb_running_get_entry(args->dnode, NULL, true);
+
+	if (circuit->ldp_sync_info == NULL)
+		return NB_OK;
+
+	ldp_sync_info = circuit->ldp_sync_info;
+	UNSET_FLAG(ldp_sync_info->flags, LDP_SYNC_FLAG_HOLDDOWN);
+
+	if (CHECK_FLAG(isis->ldp_sync_cmd.flags, LDP_SYNC_FLAG_HOLDDOWN))
+		ldp_sync_info->holddown = isis->ldp_sync_cmd.holddown;
+	else
 		ldp_sync_info->holddown = LDP_IGP_SYNC_HOLDDOWN_DEFAULT;
-	} else {
-		SET_FLAG(ldp_sync_info->flags, LDP_SYNC_FLAG_HOLDDOWN);
-		ldp_sync_info->holddown = holddown;
-	}
 
 	return NB_OK;
 }

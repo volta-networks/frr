@@ -247,7 +247,7 @@ int lib_interface_isis_multi_topology_ipv6_dstsrc_modify(
 	struct nb_cb_modify_args *args);
 int lib_interface_isis_mpls_ldp_sync_modify(struct nb_cb_modify_args *args);
 int lib_interface_isis_mpls_holddown_modify(struct nb_cb_modify_args *args);
-
+int lib_interface_isis_mpls_holddown_destroy(struct nb_cb_destroy_args *args);
 struct yang_data *
 lib_interface_state_isis_get_elem(struct nb_cb_get_elem_args *args);
 const void *lib_interface_state_isis_adjacencies_adjacency_get_next(

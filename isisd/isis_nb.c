@@ -912,6 +912,7 @@ const struct frr_yang_module_info frr_isisd_info = {
 			.cbs = {
 				.cli_show = cli_show_isis_mpls_if_ldp_sync_holddown,
 				.modify = lib_interface_isis_mpls_holddown_modify,
+				.destroy = lib_interface_isis_mpls_holddown_destroy,
 			}
 		},
 		{
