@@ -613,7 +613,6 @@ module frr-isisd {
           range "0..10000";
       }
         units "seconds";
-  	default "0";
         description
           "Time to wait for LDP-Sync to occur before restoring interface metric.";
       }

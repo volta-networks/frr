@@ -346,6 +346,13 @@ static int isis_ldp_sync_adj_state_change(struct isis_adjacency *adj)
 		}
 	} else {
 		/* If LDP-SYNC is configure on this interface then stop it */
+		if (circuit->circ_type == CIRCUIT_T_P2P ||
+		    if_is_pointopoint(circuit->interface))
+			ldp_sync_info->state =
+				LDP_IGP_SYNC_STATE_REQUIRED_NOT_UP;
+		else
+			ldp_sync_info->state = LDP_IGP_SYNC_STATE_NOT_REQUIRED;
+
 		if (IS_DEBUG_ISIS(DEBUG_LDP_SYNC))
 			zlog_debug("ldp_sync: down on if %s",
 				   circuit->interface->name);
