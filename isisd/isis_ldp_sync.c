@@ -321,6 +321,7 @@ void isis_ldp_sync_if_remove(struct isis_circuit *circuit)
 	}
 	isis_ldp_sync_set_if_metric(circuit);
 	ldp_sync_info_free((struct ldp_sync_info **)&(ldp_sync_info));
+	circuit->ldp_sync_info = NULL;
 }
 
 static int isis_ldp_sync_adj_state_change(struct isis_adjacency *adj)
@@ -528,7 +529,6 @@ void isis_if_set_ldp_sync_enable(struct isis_circuit *circuit)
          *  specifed on interface overrides global config
          *  if ptop link send msg to LDP indicating ldp-sync enabled
          */
-	zlog_debug("ldp_sync: %s enable if %s ",__func__,circuit->interface->name);
 	if (CHECK_FLAG(isis->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE)) {
 		if (circuit->ldp_sync_info == NULL)
 			circuit->ldp_sync_info = ldp_sync_info_create();
@@ -592,10 +592,10 @@ static void isis_circuit_ldp_sync_print_vty(struct isis_circuit *circuit,
 	struct ldp_sync_info *ldp_sync_info;
 	const char *ldp_state;
 
-	ldp_sync_info = circuit->ldp_sync_info;
-	if (ldp_sync_info == NULL)
+	if (circuit->ldp_sync_info == NULL)
 		return;
 
+	ldp_sync_info = circuit->ldp_sync_info;
 	vty_out(vty,"%-10s\n", circuit->interface->name);
 	vty_out(vty,"  LDP-IGP Synchronization enabled: %s\n",
 		ldp_sync_info->enabled == LDP_IGP_SYNC_ENABLED
