@@ -60,10 +60,8 @@ struct ldp_sync_info *ldp_sync_info_create(void)
  */
 void ldp_sync_info_free(struct ldp_sync_info **ldp_sync_info)
 {
-	if (*ldp_sync_info) {
+	if (*ldp_sync_info)
 		XFREE(MTYPE_LDP_SYNC_INFO, *ldp_sync_info);
-		*ldp_sync_info = NULL;
-	}
 }
 
 bool ldp_sync_if_is_enabled(struct ldp_sync_info *ldp_sync_info)

@@ -330,6 +330,7 @@ void ospf_ldp_sync_if_remove(struct interface *ifp)
 	ospf_if_recalculate_output_cost(ifp);
 
 	ldp_sync_info_free((struct ldp_sync_info **)&(ldp_sync_info));
+	params->ldp_sync_info = NULL;
 
 }
 
@@ -550,10 +551,10 @@ static void show_ip_ospf_mpls_ldp_interface_sub(struct vty *vty,
 	struct ldp_sync_info *ldp_sync_info;
 
 	params = IF_DEF_PARAMS(oi->ifp);
-	ldp_sync_info = params->ldp_sync_info;
-	if (ldp_sync_info == NULL)
+	if (params->ldp_sync_info == NULL)
 		return;
 
+	ldp_sync_info = params->ldp_sync_info;
 	if (use_json) {
 		if (ldp_sync_info->enabled == LDP_IGP_SYNC_ENABLED)
 			json_object_boolean_true_add(json_interface_sub,
