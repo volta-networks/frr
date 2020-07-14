@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 #
-# test_ldp_vpls_topo1.py
+# test_ldp_ospf_topo1.py
 # Part of NetDEF Topology Tests
 #
 # Copyright (c) 2020 by Volta Networks
