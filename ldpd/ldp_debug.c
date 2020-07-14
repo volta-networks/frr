@@ -99,6 +99,11 @@ ldp_vty_debug(struct vty *vty, const char *negate, const char *type_str,
 					DEBUG_ON(msg, LDP_DEBUG_MSG_SEND_ALL);
 			}
 		}
+	} else if (strcmp(type_str, "sync") == 0) {
+		if (negate)
+			DEBUG_OFF(sync, LDP_DEBUG_SYNC);
+		else
+			DEBUG_ON(sync, LDP_DEBUG_SYNC);
 	} else if (strcmp(type_str, "zebra") == 0) {
 		if (negate)
 			DEBUG_OFF(zebra, LDP_DEBUG_ZEBRA);
@@ -127,6 +132,8 @@ ldp_vty_show_debugging(struct vty *vty)
 		vty_out (vty, "  LDP events debugging is on\n");
 	if (LDP_DEBUG(labels, LDP_DEBUG_LABELS))
 		vty_out (vty, "  LDP labels debugging is on\n");
+	if (LDP_DEBUG(event, LDP_DEBUG_SYNC))
+		vty_out (vty, "  LDP sync debugging is on\n");
 	if (LDP_DEBUG(msg, LDP_DEBUG_MSG_RECV_ALL))
 		vty_out (vty,
 			  "  LDP detailed messages debugging is on (inbound)\n");
