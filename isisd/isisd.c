@@ -773,6 +773,8 @@ void print_debug(struct vty *vty, int flags, int onoff)
 		vty_out(vty, "IS-IS Flooding debugging is %s\n", onoffs);
 	if (flags & DEBUG_BFD)
 		vty_out(vty, "IS-IS BFD debugging is %s\n", onoffs);
+	if (flags & DEBUG_LDP_SYNC)
+		vty_out(vty, "IS-IS ldp-sync debugging is %s\n", onoffs);
 }
 
 DEFUN_NOSH (show_debugging,

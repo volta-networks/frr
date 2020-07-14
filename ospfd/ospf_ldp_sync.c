@@ -64,12 +64,9 @@ int ospf_ldp_sync_state_update(struct ldp_igp_sync_if_state state)
 	if (ifp == NULL)
 		return 0;
 
-	if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
-		zlog_debug("ldp_sync: rcvd %s from LDP if %s",
-			   state.sync_start
-			   ? "sync-start"
-			   : "sync-complete",
-			   ifp->name);
+	ols_debug("ldp_sync: rcvd %s from LDP if %s",
+		  state.sync_start ? "sync-start" : "sync-complete",
+		  ifp->name);
 	if (state.sync_start)
 		ospf_ldp_sync_if_start(ifp, false);
 	else
@@ -93,8 +90,7 @@ int ospf_ldp_sync_announce_update(struct ldp_igp_sync_announce announce)
 	if (announce.proto != ZEBRA_ROUTE_LDP)
 		return 0;
 
-	if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
-		zlog_debug("ldp_sync: rcvd announce from LDP");
+	ols_debug("ldp_sync: rcvd announce from LDP");
 
 	/* LDP just started up:
 	 *  set cost to LSInfinity
@@ -156,10 +152,7 @@ int ospf_ldp_sync_hello_update(struct ldp_igp_sync_hello hello)
 
 void ospf_ldp_sync_state_req_msg(struct interface *ifp)
 {
-	if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
-		zlog_debug("ldp_sync: send state request to LDP for %s",
-			   ifp->name);
-
+	ols_debug("ldp_sync: send state request to LDP for %s", ifp->name);
 	ldp_sync_state_req_msg(ifp, ZEBRA_ROUTE_OSPF);
 }
 
@@ -213,9 +206,8 @@ void ospf_ldp_sync_if_start(struct interface *ifp, bool send_state_req)
 	if (ldp_sync_info &&
 	    ldp_sync_info->enabled == LDP_IGP_SYNC_ENABLED &&
 	    ldp_sync_info->state != LDP_IGP_SYNC_STATE_NOT_REQUIRED) {
-		if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
-			zlog_debug("ldp_sync: start on if %s state: %s",
-				ifp->name, "Holding down until Sync");
+		ols_debug("ldp_sync: start on if %s state: %s",
+			  ifp->name, "Holding down until Sync");
 		ldp_sync_info->state = LDP_IGP_SYNC_STATE_REQUIRED_NOT_UP;
 		ospf_if_recalculate_output_cost(ifp);
 		ospf_ldp_sync_holddown_timer_add(ifp);
@@ -278,8 +270,7 @@ void ospf_ldp_sync_if_down(struct interface *ifp)
 	if (ldp_sync_if_down(ldp_sync_info) == false)
 		return;
 
-	if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
-		zlog_debug("ldp_sync: down on if %s", ifp->name);
+	ols_debug("ldp_sync: down on if %s", ifp->name);
 
 	/* Interface down:
 	 *  can occur from a link down or changing config
@@ -321,8 +312,7 @@ void ospf_ldp_sync_if_remove(struct interface *ifp)
 	 *  return ospf cost to original value
 	 *  delete ldp instance on interface
 	 */
-	if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
-		zlog_debug("ldp_sync: Removed from if %s",ifp->name);
+	ols_debug("ldp_sync: Removed from if %s",ifp->name);
 	if (ldp_sync_info) {
 		THREAD_TIMER_OFF(ldp_sync_info->t_holddown);
 		ldp_sync_info->state = LDP_IGP_SYNC_STATE_NOT_REQUIRED;
@@ -373,9 +363,8 @@ static int ospf_ldp_sync_holddown_timer(struct thread *thread)
 	ldp_sync_info->state = LDP_IGP_SYNC_STATE_REQUIRED_UP;
 	ldp_sync_info->t_holddown = NULL;
 
-	if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
-		zlog_debug("ldp_sync: holddown timer expired for %s state: %s",
-			   ifp->name, "Sync achieved");
+	ols_debug("ldp_sync: holddown timer expired for %s state: Sync achieved",
+		  ifp->name);
 
 	ospf_if_recalculate_output_cost(ifp);
 	return 0;
@@ -398,9 +387,8 @@ void ospf_ldp_sync_holddown_timer_add(struct interface *ifp)
 	    ldp_sync_info->holddown == LDP_IGP_SYNC_HOLDDOWN_DEFAULT)
 		return;
 
-	if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
-		zlog_debug("ldp_sync: start holddown timer for %s time %d",
-			   ifp->name, ldp_sync_info->holddown);
+	ols_debug("ldp_sync: start holddown timer for %s time %d",
+		  ifp->name, ldp_sync_info->holddown);
 
 	thread_add_timer(master, ospf_ldp_sync_holddown_timer,
 			 ifp, ldp_sync_info->holddown,
@@ -471,8 +459,7 @@ void ospf_if_set_ldp_sync_enable(struct ospf *ospf, struct interface *ifp)
 
 		ldp_sync_info->enabled = LDP_IGP_SYNC_ENABLED;
 
-		if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
-			zlog_debug("ldp_sync: enable if %s", ifp->name);
+		ols_debug("ldp_sync: enable if %s", ifp->name);
 
 		/* send message to LDP if ptop link */
 		if (params->type == OSPF_IFTYPE_POINTOPOINT ||
