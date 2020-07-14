@@ -24,6 +24,14 @@
 
 #define LDP_OSPF_LSINFINITY 65535
 
+/* Macro to log debug message */
+#define ols_debug(...)                                                         \
+	do {                                                                   \
+		if (IS_DEBUG_OSPF_LDP_SYNC)                                    \
+			zlog_debug(__VA_ARGS__);                               \
+	} while (0)
+
+
 extern void ospf_if_set_ldp_sync_enable(struct ospf *, struct interface *);
 extern void ospf_if_set_ldp_sync_holddown(struct ospf *, struct interface *);
 extern void ospf_ldp_sync_if_init(struct ospf_interface *);
