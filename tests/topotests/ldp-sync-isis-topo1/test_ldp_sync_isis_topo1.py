@@ -285,10 +285,11 @@ def test_isis_ldp_sync():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-#    for rname in ["r1", "r2", "r3"]:
-#        router_compare_json_output(
-#            rname, "show isis mpls ldp-sync json", "show_isis_ldp_sync.ref"
-#        )
+    for rname in ["r1", "r2", "r3"]:
+        (result, diff) = validate_show_isis_ldp_sync(
+            rname, "show_isis_ldp_sync.ref"
+        )
+        assert result, "ISIS did not converge on {}:\n{}".format(rname, diff)
 
 #    for rname in ["r1", "r2", "r3"]:
 #        router_compare_json_output(
@@ -320,10 +321,34 @@ def test_r1_eth1_shutdown():
             rname, "show mpls ldp igp-sync json", "show_ldp_igp_sync_r1_eth1_shutdown.ref"
         )
 
+    # TODO enable me
 #    for rname in ["r1", "r2", "r3"]:
-#        router_compare_json_output(
-#            rname, "show isis mpls ldp-sync json", "show_isis_ldp_sync_r1_eth1_shutdown.ref"
+#        (result, diff) = validate_show_isis_ldp_sync(
+#            rname, "show_isis_ldp_sync_r1_eth1_shutdown.ref"
 #        )
+#        assert result, "ISIS did not converge on {}:\n{}".format(rname, diff)
+
+    # TODO remove me
+    for rname in ["r1"]:
+        (result, diff) = validate_show_isis_ldp_sync(
+            rname, "show_isis_ldp_sync_r1_eth1_shutdown.ref"
+        )
+        assert result, "ISIS did not converge on {}:\n{}".format(rname, diff)
+
+    # TODO remove me
+#    for rname in ["r2"]:
+#       (result, diff) = validate_show_isis_ldp_sync(
+#           rname, "show_isis_ldp_sync_r1_eth1_shutdown.ref"
+#       )
+#       assert result, "ISIS did not converge on {}:\n{}".format(rname, diff)
+
+    # TODO remove me
+    for rname in ["r3"]:
+       (result, diff) = validate_show_isis_ldp_sync(
+           rname, "show_isis_ldp_sync_r1_eth1_shutdown.ref"
+       )
+       assert result, "ISIS did not converge on {}:\n{}".format(rname, diff)
+
 
 #    for rname in ["r1", "r2", "r3"]:
 #        router_compare_json_output(
@@ -348,15 +373,17 @@ def test_r1_eth1_no_shutdown():
             rname, "show mpls ldp igp-sync json", "show_ldp_igp_sync.ref"
         )
 
-#    for rname in ["r1", "r2", "r3"]:
-#        router_compare_json_output(
-#            rname, "show isis mpls ldp-sync json", "show_isis_ldp_sync.ref"
-#        )
+    for rname in ["r1", "r2", "r3"]:
+        (result, diff) = validate_show_isis_ldp_sync(
+            rname, "show_isis_ldp_sync.ref"
+        )
+        assert result, "ISIS did not converge on {}:\n{}".format(rname, diff)
 
 #    for rname in ["r1", "r2", "r3"]:
 #        router_compare_json_output(
 #            rname, "show isis interface json", "show_ip_isis_interface.ref"
 #        )
+
 
 def test_r2_eth1_shutdown():
     logger.info("Test: verify behaviour after r2-eth1 is shutdown")
@@ -376,9 +403,29 @@ def test_r2_eth1_shutdown():
             rname, "show mpls ldp igp-sync json", "show_ldp_igp_sync_r1_eth1_shutdown.ref"
         )
 
+# TODO enable me
 #    for rname in ["r1", "r2", "r3"]:
-#        router_compare_json_output(
-#            rname, "show isis mpls ldp-sync json", "show_isis_ldp_sync_r2_eth1_shutdown.ref"
+#        (result, diff) = validate_show_isis_ldp_sync(
+#            rname, "show_isis_ldp_sync_r2_eth1_shutdown.ref"
+#        )
+#        assert result, "ISIS did not converge on {}:\n{}".format(rname, diff)
+
+    # TODO remove me
+    for rname in ["r1"]:
+        (result, diff) = validate_show_isis_ldp_sync(
+            rname, "show_isis_ldp_sync_r2_eth1_shutdown.ref"
+        )
+
+    # TODO remove me
+    #for rname in ["r2"]:
+#        (result, diff) = validate_show_isis_ldp_sync(
+#            rname, "show_isis_ldp_sync_r2_eth1_shutdown.ref"
+#        )
+
+    # TODO remove me
+#    for rname in ["r3"]:
+#        (result, diff) = validate_show_isis_ldp_sync(
+#            rname, "show_isis_ldp_sync_r2_eth1_shutdown.ref"
 #        )
 
 #    for rname in ["r1", "r2", "r3"]:
@@ -404,10 +451,12 @@ def test_r2_eth1_no_shutdown():
             rname, "show mpls ldp igp-sync json", "show_ldp_igp_sync.ref"
         )
 
-#    for rname in ["r1", "r2", "r3"]:
-#        router_compare_json_output(
-#            rname, "show isis mpls ldp-sync json", "show_isis_ldp_sync.ref"
-#        )
+    for rname in ["r1", "r2", "r3"]:
+        (result, diff) = validate_show_isis_ldp_sync(
+            rname, "show_isis_ldp_sync.ref"
+        )
+        assert result, "ISIS did not converge on {}:\n{}".format(rname, diff)
+
 
 #    for rname in ["r1", "r2", "r3"]:
 #        router_compare_json_output(
@@ -427,3 +476,82 @@ def test_memory_leak():
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
+
+
+#
+# Auxiliary functions
+#
+
+def parse_show_isis_ldp_sync(lines, rname):
+    """
+    Parse the output of 'show isis mpls ldp sync' into a Python dict.
+    """
+    interfaces = {}
+
+    it = iter(lines)
+
+    while True:
+        try:
+            interface = {}
+            interface_name = None
+
+            line = it.next();
+
+            if line.startswith(rname + "-eth"):
+                interface_name = line
+
+            line = it.next();
+
+            if line.startswith(" LDP-IGP Synchronization enabled: "):
+                interface["ldpIgpSyncEnabled"] = line.endswith("yes")
+
+            line = it.next();
+
+            if line.startswith(" holddown timer in seconds: "):
+                interface["holdDownTimeInSec"] = int(line.split(": ")[-1])
+
+            line = it.next();
+
+            if line.startswith(" State: "):
+                interface["ldpIgpSyncState"] = line.split(": ")[-1]
+
+            interfaces[interface_name] = interface
+
+        except StopIteration:
+            break
+
+    return interfaces
+
+
+def show_isis_ldp_sync(router, rname):
+    """
+    Get the show isis mpls ldp-sync info in a dictionary format.
+
+    """
+    out = topotest.normalize_text(
+        router.vtysh_cmd("show isis mpls ldp-sync")
+    ).splitlines()
+
+    parsed = parse_show_isis_ldp_sync(out, rname)
+
+    return parsed
+
+
+def validate_show_isis_ldp_sync(rname, fname):
+    tgen = get_topogen()
+
+    filename = "{0}/{1}/{2}".format(CWD, rname, fname)
+    expected = json.loads(open(filename).read())
+
+    router = tgen.gears[rname]
+
+    def compare_isis_ldp_sync(router, expected):
+        "Helper function to test show isis mpls ldp-sync."
+        actual = show_isis_ldp_sync(router, rname)
+        return topotest.json_cmp(actual, expected)
+
+    test_func = partial(compare_isis_ldp_sync, router, expected)
+    (result, diff) = topotest.run_and_expect(test_func, None, wait=0.5, count=120)
+
+    return (result, diff)
+
