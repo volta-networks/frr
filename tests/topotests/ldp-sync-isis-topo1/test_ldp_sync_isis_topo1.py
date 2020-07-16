@@ -183,16 +183,16 @@ def test_isis_convergence():
             "show yang operational-data /frr-interface:lib isisd",
             "show_yang_interface_isis_adjacencies.ref")
 
-#def test_rib():
-#    logger.info("Test: verify RIB")
-#    tgen = get_topogen()
-#
-#    # Skip if previous fatal error condition is raised
-#    if tgen.routers_have_failure():
-#        pytest.skip(tgen.errors)
-#
-#    for rname in ["r1", "r2", "r3"]:
-#        router_compare_json_output(rname, "show ip route json", "show_ip_route.ref")
+def test_rib():
+    logger.info("Test: verify RIB")
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for rname in ["r1", "r2", "r3"]:
+        router_compare_json_output(rname, "show ip route json", "show_ip_route.ref")
 
 
 def test_ldp_adjacencies():
