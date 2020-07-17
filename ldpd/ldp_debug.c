@@ -202,5 +202,10 @@ ldp_debug_config_write(struct vty *vty)
 		write = 1;
 	}
 
+	if (CONF_LDP_DEBUG(sync, LDP_DEBUG_SYNC)) {
+		vty_out (vty, "debug mpls ldp sync\n");
+		write = 1;
+	}
+
 	return (write);
 }
