@@ -60,6 +60,7 @@ ce1-eth0 (172.16.1.1/24)|                          |ce2-eth0 (172.16.1.2/24)
 """
 
 import os
+import re
 import sys
 import pytest
 import json
@@ -291,10 +292,11 @@ def test_isis_ldp_sync():
         )
         assert result, "ISIS did not converge on {}:\n{}".format(rname, diff)
 
-#    for rname in ["r1", "r2", "r3"]:
-#        router_compare_json_output(
-#            rname, "show isis interface json", "show_ip_isis_interface.ref"
-#        )
+    for rname in ["r1", "r2", "r3"]:
+        (result, diff) = validate_show_isis_interface_detail(
+            rname, "show_isis_interface_detail.ref"
+        )
+        assert result, "ISIS interface did not converge on {}:\n{}".format(rname, diff)
 
 
 def test_r1_eth1_shutdown():
@@ -349,11 +351,12 @@ def test_r1_eth1_shutdown():
        )
        assert result, "ISIS did not converge on {}:\n{}".format(rname, diff)
 
+    for rname in ["r1", "r2", "r3"]:
+        (result, diff) = validate_show_isis_interface_detail(
+            rname, "show_isis_interface_detail_r1_eth1_shutdown.ref"
+        )
+        assert result, "ISIS interface did not converge on {}:\n{}".format(rname, diff)
 
-#    for rname in ["r1", "r2", "r3"]:
-#        router_compare_json_output(
-#            rname, "show isis interface json", "show_ip_isis_interface_r1_eth1_shutdown.ref"
-#        )
 
 def test_r1_eth1_no_shutdown():
     logger.info("Test: verify behaviour after r1-eth1 is no shutdown")
@@ -379,10 +382,11 @@ def test_r1_eth1_no_shutdown():
         )
         assert result, "ISIS did not converge on {}:\n{}".format(rname, diff)
 
-#    for rname in ["r1", "r2", "r3"]:
-#        router_compare_json_output(
-#            rname, "show isis interface json", "show_ip_isis_interface.ref"
-#        )
+    for rname in ["r1", "r2", "r3"]:
+        (result, diff) = validate_show_isis_interface_detail(
+            rname, "show_isis_interface_detail.ref"
+        )
+        assert result, "ISIS interface did not converge on {}:\n{}".format(rname, diff)
 
 
 def test_r2_eth1_shutdown():
@@ -428,10 +432,12 @@ def test_r2_eth1_shutdown():
 #            rname, "show_isis_ldp_sync_r2_eth1_shutdown.ref"
 #        )
 
-#    for rname in ["r1", "r2", "r3"]:
-#        router_compare_json_output(
-#            rname, "show isis interface json", "show_ip_isis_interface_r2_eth1_shutdown.ref"
-#        )
+    for rname in ["r1", "r2", "r3"]:
+        (result, diff) = validate_show_isis_interface_detail(
+            rname, "show_isis_interface_detail_r2_eth1_shutdown.ref"
+        )
+        assert result, "ISIS interface did not converge on {}:\n{}".format(rname, diff)
+
 
 def test_r2_eth1_no_shutdown():
     logger.info("Test: verify behaviour after r2-eth1 is no shutdown")
@@ -457,11 +463,12 @@ def test_r2_eth1_no_shutdown():
         )
         assert result, "ISIS did not converge on {}:\n{}".format(rname, diff)
 
+    for rname in ["r1", "r2", "r3"]:
+        (result, diff) = validate_show_isis_interface_detail(
+            rname, "show_isis_interface_detail.ref"
+        )
+        assert result, "ISIS interface did not converge on {}:\n{}".format(rname, diff)
 
-#    for rname in ["r1", "r2", "r3"]:
-#        router_compare_json_output(
-#            rname, "show isis interface json", "show_ip_isis_interface.ref"
-#        )
 
 # Memory leak test template
 def test_memory_leak():
@@ -546,12 +553,114 @@ def validate_show_isis_ldp_sync(rname, fname):
     router = tgen.gears[rname]
 
     def compare_isis_ldp_sync(router, expected):
-        "Helper function to test show isis mpls ldp-sync."
+        "Helper function to test show isis mpls ldp-sync"
         actual = show_isis_ldp_sync(router, rname)
         return topotest.json_cmp(actual, expected)
 
     test_func = partial(compare_isis_ldp_sync, router, expected)
-    (result, diff) = topotest.run_and_expect(test_func, None, wait=0.5, count=120)
+    (result, diff) = topotest.run_and_expect(test_func, None, wait=0.5, count=160)
+
+    return (result, diff)
+
+
+def parse_show_isis_interface_detail(lines, rname):
+    """
+    Parse the output of 'show isis interface detail' into a Python dict.
+    """
+    areas = {}
+    area_id = None
+
+    it = iter(lines)
+
+    while True:
+        try:
+            line = it.next();
+
+            area_match = re.match(r"Area (.+):", line)
+            if not area_match:
+                continue
+
+            area_id = area_match.group(1)
+            area = {}
+
+            line = it.next();
+
+            while line.startswith(" Interface: "):
+                interface_name = re.split(':|,', line)[1].lstrip()
+
+                area[interface_name]= []
+
+                # Look for keyword: Level-1 or Level-2
+                while not line.startswith(" Level-"):
+                    line = it.next();
+
+                while line.startswith(" Level-"):
+
+                    level = {}
+
+                    level_name = line.split()[0]
+                    level['level'] = level_name
+
+                    line = it.next();
+
+                    if line.startswith(" Metric:"):
+                        level['metric'] = re.split(':|,', line)[1].lstrip()
+
+                    area[interface_name].append(level)
+
+                    # Look for keyword: Level-1 or Level-2 or Interface:
+                    while not line.startswith(" Level-") and not line.startswith(" Interface: "):
+                        line = it.next();
+
+                    if line.startswith(" Level-"):
+                        continue
+
+                    if line.startswith(" Interface: "):
+                        break
+
+            areas[area_id] = area
+
+        except StopIteration:
+
+            areas[area_id] = area
+            break
+
+    return areas
+
+
+def show_isis_interface_detail(router, rname):
+    """
+    Get the show isis mpls ldp-sync info in a dictionary format.
+
+    """
+    out = topotest.normalize_text(
+        router.vtysh_cmd("show isis interface detail")
+    ).splitlines()
+
+    logger.warning(out)
+
+    parsed = parse_show_isis_interface_detail(out, rname)
+
+    logger.warning(parsed)
+
+    return parsed
+
+
+def validate_show_isis_interface_detail(rname, fname):
+    tgen = get_topogen()
+
+    filename = "{0}/{1}/{2}".format(CWD, rname, fname)
+    expected = json.loads(open(filename).read())
+
+    router = tgen.gears[rname]
+
+    def compare_isis_interface_detail(router, expected):
+        "Helper function to test show isis interface detail"
+        actual = show_isis_interface_detail(router, rname)
+        return topotest.json_cmp(actual, expected)
+
+    test_func = partial(compare_isis_interface_detail, router, expected)
+    (result, diff) = topotest.run_and_expect(test_func, None, wait=0.5, count=160)
 
     return (result, diff)
 
