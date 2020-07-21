@@ -74,6 +74,7 @@ unsigned long debug_flooding;
 unsigned long debug_bfd;
 unsigned long debug_tx_queue;
 unsigned long debug_sr;
+unsigned long debug_ldp_sync;
 
 struct isis *isis = NULL;
 
@@ -826,6 +827,8 @@ DEFUN_NOSH (show_debugging,
 		print_debug(vty, DEBUG_FLOODING, 1);
 	if (IS_DEBUG_BFD)
 		print_debug(vty, DEBUG_BFD, 1);
+	if (IS_DEBUG_LDP_SYNC)
+		print_debug(vty, DEBUG_LDP_SYNC, 1);
 	return CMD_SUCCESS;
 }
 
@@ -894,7 +897,7 @@ static int config_write_debug(struct vty *vty)
 		vty_out(vty, "debug " PROTO_NAME " bfd\n");
 		write++;
 	}
-	if (flags & DEBUG_LDP_SYNC) {
+	if (IS_DEBUG_LDP_SYNC) {
 		vty_out(vty, "debug " PROTO_NAME " ldp-sync\n");
 		write++;
 	}
@@ -1261,7 +1264,7 @@ DEFUN (debug_isis_ldp_sync,
        PROTO_HELP
        PROTO_NAME " interaction with LDP-Sync\n")
 {
-	isis->debugs |= DEBUG_LDP_SYNC;
+	debug_ldp_sync |= DEBUG_LDP_SYNC;
 	print_debug(vty, DEBUG_LDP_SYNC, 1);
 
 	return CMD_SUCCESS;
@@ -1275,7 +1278,7 @@ DEFUN (no_debug_isis_ldp_sync,
        PROTO_HELP
        PROTO_NAME " interaction with LDP-Sync\n")
 {
-	isis->debugs &= ~DEBUG_LDP_SYNC;
+	debug_ldp_sync &= ~DEBUG_LDP_SYNC;
 	print_debug(vty, DEBUG_LDP_SYNC, 0);
 
 	return CMD_SUCCESS;

@@ -247,6 +247,7 @@ extern unsigned long debug_flooding;
 extern unsigned long debug_bfd;
 extern unsigned long debug_tx_queue;
 extern unsigned long debug_sr;
+extern unsigned long debug_ldp_sync;
 
 #define DEBUG_ADJ_PACKETS                (1<<0)
 #define DEBUG_SNP_PACKETS                (1<<1)
@@ -277,6 +278,7 @@ extern unsigned long debug_sr;
 #define IS_DEBUG_BFD (debug_bfd & DEBUG_BFD)
 #define IS_DEBUG_TX_QUEUE (debug_tx_queue & DEBUG_TX_QUEUE)
 #define IS_DEBUG_SR (debug_sr & DEBUG_SR)
+#define IS_DEBUG_LDP_SYNC (debug_ldp_sync & DEBUG_LDP_SYNC)
 
 #define lsp_debug(...)                                                         \
 	do {                                                                   \

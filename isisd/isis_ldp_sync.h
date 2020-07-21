@@ -28,7 +28,7 @@
 /* Macro to log debug message */
 #define ils_debug(...)                                                         \
 	do {                                                                   \
-		if (IS_DEBUG_ISIS(DEBUG_LDP_SYNC))                             \
+		if (IS_DEBUG_LDP_SYNC)                                         \
 			zlog_debug(__VA_ARGS__);                               \
 	} while (0)
 
