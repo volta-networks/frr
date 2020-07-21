@@ -144,15 +144,16 @@ ldp_sync_zebra_send_announce(void)
 static int
 ldp_zebra_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 {
-	uint32_t type;
-	struct ldp_igp_sync_if_state_req state_req;
 	struct stream *s;
+	struct zapi_opaque_msg info;
+	struct ldp_igp_sync_if_state_req state_req;
 
-	s = zclient->ibuf;
+        s = zclient->ibuf;
 
-	STREAM_GETL(s, type);
+        if (zclient_opaque_decode(s, &info) != 0)
+                return -1;
 
-	switch (type) {
+	switch (info.type) {
 	case LDP_IGP_SYNC_IF_STATE_REQUEST:
                 STREAM_GET(&state_req, s, sizeof(state_req));
 		main_imsg_compose_ldpe(IMSG_LDP_SYNC_IF_STATE_REQUEST, 0, &state_req,

@@ -1872,6 +1872,7 @@ void ospf_debug_init(void)
 	install_element(ENABLE_NODE, &debug_ospf_te_cmd);
 	install_element(ENABLE_NODE, &debug_ospf_sr_cmd);
 	install_element(ENABLE_NODE, &debug_ospf_default_info_cmd);
+
 	install_element(ENABLE_NODE, &debug_ospf_ldp_sync_cmd);
 	install_element(ENABLE_NODE, &no_debug_ospf_ism_cmd);
 	install_element(ENABLE_NODE, &no_debug_ospf_nsm_cmd);

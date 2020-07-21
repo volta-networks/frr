@@ -1728,17 +1728,19 @@ static void ospf_zebra_connected(struct zclient *zclient)
  */
 static int ospf_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 {
-	uint32_t type;
+	struct stream *s;
+	struct zapi_opaque_msg info;
 	struct ldp_igp_sync_if_state state;
 	struct ldp_igp_sync_announce announce;
 	struct ldp_igp_sync_hello hello;
-	struct stream *s;
 	int    ret = 0;
 
 	s = zclient->ibuf;
-	STREAM_GETL(s, type);
 
-	switch (type) {
+	if (zclient_opaque_decode(s, &info) != 0)
+		return -1;
+
+	switch (info.type) {
 	case LDP_IGP_SYNC_IF_STATE_UPDATE:
                 STREAM_GET(&state, s, sizeof(state));
 		ret = ospf_ldp_sync_state_update (state);
