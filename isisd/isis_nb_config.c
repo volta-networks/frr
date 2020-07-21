@@ -84,6 +84,10 @@ int isis_instance_destroy(struct nb_cb_destroy_args *args)
 	area = nb_running_unset_entry(args->dnode);
 	isis_area_destroy(area->area_tag);
 
+	/* remove ldp-sync config */
+	if (area->isis->vrf_id == VRF_DEFAULT)
+		isis_ldp_sync_gbl_exit(area);
+
 	return NB_OK;
 }
 
@@ -1861,44 +1865,15 @@ int isis_instance_mpls_ldp_sync_create(struct nb_cb_create_args *args)
 int isis_instance_mpls_ldp_sync_destroy(struct nb_cb_destroy_args *args)
 {
 	struct isis_area *area;
-	struct listnode *node;
-	struct isis_circuit *circuit;
-	struct interface *ifp;
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
 	area = nb_running_get_entry(args->dnode, NULL, true);
 
-	/* if you delete LDP-SYNC at a gobal level is clears all LDP-SYNC
-	 * configuration, even interface configuration
-	 */
-	if (CHECK_FLAG(isis->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE)) {
+	/* remove ldp-sync config */
+	isis_ldp_sync_gbl_exit(area);
 
-		/* register with opaque client to recv LDP-IGP Sync msgs */
-		zclient_unregister_opaque(zclient, LDP_IGP_SYNC_IF_STATE_UPDATE);
-		zclient_unregister_opaque(zclient, LDP_IGP_SYNC_ANNOUNCE_UPDATE);
-		zclient_unregister_opaque(zclient, LDP_IGP_SYNC_HELLO_UPDATE);
-
-		/* disable LDP globally */
-		UNSET_FLAG(isis->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE);
-		UNSET_FLAG(isis->ldp_sync_cmd.flags, LDP_SYNC_FLAG_HOLDDOWN);
-		isis->ldp_sync_cmd.holddown = LDP_IGP_SYNC_HOLDDOWN_DEFAULT;
-		THREAD_TIMER_OFF(isis->ldp_sync_cmd.t_hello);
-		isis->ldp_sync_cmd.t_hello = NULL;
-
-		/* turn off LDP-IGP Sync on all ISIS interfaces */
-		FOR_ALL_INTERFACES (vrf, ifp) {
-			for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
-				circuit = circuit_lookup_by_ifp(ifp,
-					area->circuit_list);
-				if (circuit == NULL)
-					continue;
-				isis_if_set_ldp_sync_enable(circuit);
-			}
-		}
-	}
 	return NB_OK;
 }
 
@@ -2019,6 +1994,9 @@ int lib_interface_isis_destroy(struct nb_cb_destroy_args *args)
 	circuit = nb_running_unset_entry(args->dnode);
 	if (!circuit)
 		return NB_ERR_INCONSISTENCY;
+
+	/* remove ldp-sync config */
+	isis_ldp_sync_if_remove(circuit);
 
 	/* disable both AFs for this circuit. this will also update the
 	 * CSM state by sending an ISIS_DISABLED signal. If there is no
@@ -2718,7 +2696,7 @@ int lib_interface_isis_mpls_ldp_sync_modify(struct nb_cb_modify_args *args)
 		ldp_sync_info->state = LDP_IGP_SYNC_STATE_NOT_REQUIRED;
 		THREAD_TIMER_OFF(ldp_sync_info->t_holddown);
 		ldp_sync_info->t_holddown = NULL;
-		isis_ldp_sync_set_if_metric(circuit);
+		isis_ldp_sync_set_if_metric(circuit, true);
 	}
 
 	return NB_OK;

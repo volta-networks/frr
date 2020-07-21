@@ -524,6 +524,7 @@ void ospf_terminate(void)
 		goto done;
 
 	bfd_gbl_exit();
+
 	for (ALL_LIST_ELEMENTS(om->ospf, node, nnode, ospf))
 		ospf_finish(ospf);
 
@@ -606,6 +607,10 @@ static void ospf_finish_final(struct ospf *ospf)
 		ospf_vl_delete(ospf, vl_data);
 
 	list_delete(&ospf->vlinks);
+
+	/* shutdown LDP-Sync */
+	if (ospf->vrf_id == VRF_DEFAULT)
+		ospf_ldp_sync_gbl_exit(ospf);
 
 	/* Remove any ospf interface config params */
 	FOR_ALL_INTERFACES (vrf, ifp) {

@@ -52,4 +52,5 @@ extern int ospf_ldp_sync_hello_update(struct ldp_igp_sync_hello);
 extern void ospf_ldp_sync_state_req_msg(struct interface *);
 extern void ospf_ldp_sync_announce_send_msg(bool);
 extern void ospf_ldp_sync_init(void);
+extern void ospf_ldp_sync_gbl_exit(struct ospf *);
 #endif /* _ZEBRA_OSPF_LDP_SYNC_H */

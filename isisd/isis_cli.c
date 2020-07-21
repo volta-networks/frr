@@ -90,6 +90,7 @@ DEFPY(no_router_isis, no_router_isis_cmd, "no router isis WORD$tag",
 	}
 
 	nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+
 	area = isis_area_lookup(tag);
 	if (area && area->circuit_list && listcount(area->circuit_list)) {
 		for (ALL_LIST_ELEMENTS(area->circuit_list, node, nnode,
@@ -2374,11 +2375,18 @@ DEFPY(isis_mpls_if_ldp_sync,
       MPLS_LDP_SYNC_STR)
 {
 	const struct lyd_node *dnode;
+	struct interface *ifp;
 
 	dnode = yang_dnode_get(vty->candidate_config->dnode,
 			       "%s/frr-isisd:isis", VTY_CURR_XPATH);
 	if (dnode == NULL) {
 		vty_out(vty, "ISIS is not enabled on this circuit\n");
+		return CMD_SUCCESS;
+	}
+
+	ifp = nb_running_get_entry(NULL, VTY_CURR_XPATH, false);
+	if (ifp && if_is_loopback(ifp)) {
+		vty_out(vty, "ldp-sync does not run on loopback interface\n");
 		return CMD_SUCCESS;
 	}
 
@@ -2408,11 +2416,18 @@ DEFPY(isis_mpls_if_ldp_sync_holddown,
       "Time in seconds\n")
 {
 	const struct lyd_node *dnode;
+	struct interface *ifp;
 
 	dnode = yang_dnode_get(vty->candidate_config->dnode,
 			       "%s/frr-isisd:isis", VTY_CURR_XPATH);
 	if (dnode == NULL) {
 		vty_out(vty, "ISIS is not enabled on this circuit\n");
+		return CMD_SUCCESS;
+	}
+
+	ifp = nb_running_get_entry(NULL, VTY_CURR_XPATH, false);
+	if (ifp && if_is_loopback(ifp)) {
+		vty_out(vty, "ldp-sync does not run on loopback interface\n");
 		return CMD_SUCCESS;
 	}
 
@@ -2432,11 +2447,18 @@ DEFPY(no_isis_mpls_if_ldp_sync_holddown,
       NO_MPLS_LDP_SYNC_HOLDDOWN_STR)
 {
 	const struct lyd_node *dnode;
+	struct interface *ifp;
 
 	dnode = yang_dnode_get(vty->candidate_config->dnode,
 			       "%s/frr-isisd:isis", VTY_CURR_XPATH);
 	if (dnode == NULL) {
 		vty_out(vty, "ISIS is not enabled on this circuit\n");
+		return CMD_SUCCESS;
+	}
+
+	ifp = nb_running_get_entry(NULL, VTY_CURR_XPATH, false);
+	if (ifp && if_is_loopback(ifp)) {
+		vty_out(vty, "ldp-sync does not run on loopback interface\n");
 		return CMD_SUCCESS;
 	}
 

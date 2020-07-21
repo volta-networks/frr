@@ -1504,7 +1504,7 @@ DEFUN (no_debug_ospf,
 		DEBUG_OFF(zebra, ZEBRA);
 		DEBUG_OFF(zebra, ZEBRA_INTERFACE);
 		DEBUG_OFF(zebra, ZEBRA_REDISTRIBUTE);
-
+		DEBUG_OFF(ldp_sync, LDP_SYNC);
 		for (i = 0; i < 5; i++)
 			DEBUG_PACKET_OFF(i, flag);
 	}
@@ -1530,6 +1530,7 @@ DEFUN (no_debug_ospf,
 	TERM_DEBUG_OFF(zebra, ZEBRA);
 	TERM_DEBUG_OFF(zebra, ZEBRA_INTERFACE);
 	TERM_DEBUG_OFF(zebra, ZEBRA_REDISTRIBUTE);
+	TERM_DEBUG_OFF(ldp_sync, LDP_SYNC);
 
 	return CMD_SUCCESS;
 }
@@ -1813,6 +1814,11 @@ static int config_write_debug(struct vty *vty)
 		write = 1;
 	}
 
+	/* debug ospf ldp-sync */
+	if (IS_CONF_DEBUG_OSPF(ldp_sync, LDP_SYNC) == OSPF_DEBUG_LDP_SYNC) {
+		vty_out(vty, "debug ospf%s ldp-sync\n", str);
+		write = 1;
+	}
 	return write;
 }
 
