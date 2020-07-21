@@ -25,6 +25,13 @@
 #define LDP_ISIS_LSINFINITY 0xFFFFFE  /* wide link metric */
 #define LDP_ISIS_LSINFINITY_NL 62     /* narrow link metric */
 
+/* Macro to log debug message */
+#define ils_debug(...)                                                         \
+	do {                                                                   \
+		if (IS_DEBUG_ISIS(DEBUG_LDP_SYNC))                             \
+			zlog_debug(__VA_ARGS__);                               \
+	} while (0)
+
 extern void isis_if_set_ldp_sync_enable(struct isis_circuit *);
 extern void isis_if_set_ldp_sync_holddown(struct  isis_circuit *);
 extern void isis_ldp_sync_if_init(struct isis_circuit *);
@@ -38,6 +45,7 @@ extern int isis_ldp_sync_state_update(struct ldp_igp_sync_if_state);
 extern int isis_ldp_sync_announce_update(struct ldp_igp_sync_announce);
 extern int isis_ldp_sync_hello_update(struct ldp_igp_sync_hello);
 extern void isis_ldp_sync_state_req_msg(struct isis_circuit *);
-extern void isis_ldp_sync_set_if_metric(struct isis_circuit *);
+extern void isis_ldp_sync_set_if_metric(struct isis_circuit *, bool);
 extern void isis_ldp_sync_init(void);
+extern void isis_ldp_sync_gbl_exit(struct isis_area *);
 #endif /* _ZEBRA_ISIS_LDP_SYNC_H */

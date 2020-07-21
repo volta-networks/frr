@@ -95,6 +95,22 @@ bool ldp_sync_if_down(struct ldp_sync_info *ldp_sync_info)
 	return (false);
 }
 
+bool ldp_sync_if_delete(struct ldp_sync_info *ldp_sync_info)
+{
+	/* Stop LDP-SYNC on this interface:
+	 *   if holddown timer is running stop it
+	 *   free ldp_sync_info
+	 */
+	if (ldp_sync_info && ldp_sync_info->enabled == LDP_IGP_SYNC_ENABLED) {
+		if (ldp_sync_info->t_holddown != NULL)
+		    THREAD_TIMER_OFF(ldp_sync_info->t_holddown);
+		XFREE(MTYPE_LDP_SYNC_INFO, ldp_sync_info);
+		return (true);
+	}
+
+	return (false);
+}
+
 struct zclient  *zclient;
 
 void ldp_sync_state_req_msg(struct interface *ifp, int proto)

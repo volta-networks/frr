@@ -156,9 +156,6 @@ void isis_circuit_del(struct isis_circuit *circuit)
 
 	circuit_mt_finish(circuit);
 
-	/* remove ldp sync configuration from circuit */
-	isis_ldp_sync_if_remove(circuit);
-
 	/* and lastly the circuit itself */
 	XFREE(MTYPE_ISIS_CIRCUIT, circuit);
 
@@ -481,9 +478,6 @@ void isis_circuit_if_add(struct isis_circuit *circuit, struct interface *ifp)
 	circuit->ip_addrs = list_new();
 	circuit->ipv6_link = list_new();
 	circuit->ipv6_non_link = list_new();
-
-	/* if LDP-IGP Sync is configured globally inherit config */
-	isis_ldp_sync_if_init(circuit);
 
 	for (ALL_LIST_ELEMENTS(ifp->connected, node, nnode, conn))
 		isis_circuit_add_addr(circuit, conn);
@@ -1266,6 +1260,9 @@ struct isis_circuit *isis_circuit_create(struct isis_area *area,
 	isis_circuit_if_bind(circuit, ifp);
 	if (circuit->area->mta && circuit->area->mta->status)
 		isis_link_params_update(circuit, ifp);
+
+	/* if LDP-IGP Sync is configured globally inherit config */
+	isis_ldp_sync_if_init(circuit);
 	return circuit;
 }
 
