@@ -1,9 +1,4 @@
 {
-  "lo":{
-    "ldpIgpSyncEnabled":true,
-    "holdDownTimeInSec":50,
-    "ldpIgpSyncState":"Sync not required: non-p2p link"
-  },
   "r2-eth1":{
     "ldpIgpSyncEnabled":true,
     "holdDownTimeInSec":300,
