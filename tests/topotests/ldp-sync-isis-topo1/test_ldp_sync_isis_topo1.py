@@ -338,6 +338,7 @@ def test_r1_eth1_shutdown():
         assert result, "ISIS did not converge on {}:\n{}".format(rname, diff)
 
     # TODO remove me
+#    # TODO KSSDBG trying to enable
 #    for rname in ["r2"]:
 #       (result, diff) = validate_show_isis_ldp_sync(
 #           rname, "show_isis_ldp_sync_r1_eth1_shutdown.ref"
