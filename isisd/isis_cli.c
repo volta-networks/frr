@@ -2320,6 +2320,207 @@ void cli_show_isis_log_adjacency(struct vty *vty, struct lyd_node *dnode,
 	vty_out(vty, " log-adjacency-changes\n");
 }
 
+/*
+ * XPath: /frr-isisd:isis/instance/mpls/ldp-sync
+ */
+DEFPY(isis_mpls_ldp_sync, isis_mpls_ldp_sync_cmd, "mpls ldp-sync",
+      MPLS_STR MPLS_LDP_SYNC_STR)
+{
+	nb_cli_enqueue_change(vty, "./mpls/ldp-sync", NB_OP_CREATE, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY(no_isis_mpls_ldp_sync, no_isis_mpls_ldp_sync_cmd, "no mpls ldp-sync",
+      NO_STR MPLS_STR NO_MPLS_LDP_SYNC_STR)
+{
+	struct listnode *node, *nnode;
+	struct isis_circuit *circuit;
+	struct isis_area *area = NULL;
+	const char *area_tag;
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	char temp_xpath[XPATH_MAXLEN];
+	const struct lyd_node *dnode;
+
+	/* remove LDP-SYNC on all ISIS interfaces */
+	dnode = yang_dnode_get(vty->candidate_config->dnode,
+			       "%s", VTY_CURR_XPATH);
+	area_tag = yang_dnode_get_string(dnode, "./area-tag");
+	area = isis_area_lookup(area_tag, VRF_DEFAULT);
+	if (area && area->circuit_list && listcount(area->circuit_list)) {
+		for (ALL_LIST_ELEMENTS(area->circuit_list, node, nnode,
+				       circuit)) {
+			snprintf(temp_xpath, XPATH_MAXLEN,
+				 "/frr-interface:lib/interface[name='%s'][vrf='%s']/frr-isisd:isis/mpls/ldp-sync",
+				 circuit->interface->name, vrf->name);
+			nb_cli_enqueue_change(vty, temp_xpath, NB_OP_MODIFY,
+					      "true");
+			snprintf(temp_xpath, XPATH_MAXLEN,
+				 "/frr-interface:lib/interface[name='%s'][vrf='%s']/frr-isisd:isis/mpls/holddown",
+				 circuit->interface->name, vrf->name);
+			nb_cli_enqueue_change(vty, temp_xpath, NB_OP_DESTROY,
+					      NULL);
+		}
+	}
+
+	nb_cli_enqueue_change(vty, "./mpls/ldp-sync", NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_isis_mpls_ldp_sync(struct vty *vty, struct lyd_node *dnode,
+				 bool show_defaults)
+{
+	vty_out(vty, " mpls ldp-sync\n");
+}
+
+DEFPY(isis_mpls_ldp_sync_holddown, isis_mpls_ldp_sync_holddown_cmd,
+      "mpls ldp-sync holddown (0-10000)",
+      MPLS_STR MPLS_LDP_SYNC_STR
+      "Time to wait for LDP-SYNC to occur before restoring interface metric\n"
+      "Time in seconds\n")
+{
+	nb_cli_enqueue_change(vty, "./mpls/ldp-sync/holddown", NB_OP_MODIFY,
+			      holddown_str);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY(no_isis_mpls_ldp_sync_holddown, no_isis_mpls_ldp_sync_holddown_cmd,
+      "no mpls ldp-sync holddown",
+      NO_STR MPLS_STR MPLS_LDP_SYNC_STR NO_MPLS_LDP_SYNC_HOLDDOWN_STR)
+{
+	nb_cli_enqueue_change(vty, "./mpls/ldp-sync/holddown", NB_OP_DESTROY,
+			      NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_isis_mpls_ldp_sync_holddown(struct vty *vty,
+					  struct lyd_node *dnode,
+					  bool show_defaults)
+{
+	vty_out(vty, " mpls ldp-sync holddown %s\n",
+		yang_dnode_get_string(dnode, NULL));
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-isisd:isis/mpls/ldp-sync
+ */
+DEFPY(isis_mpls_if_ldp_sync, isis_mpls_if_ldp_sync_cmd,
+      "[no] isis mpls ldp-sync",
+      NO_STR "IS-IS routing protocol\n" MPLS_STR MPLS_LDP_SYNC_STR)
+{
+	const struct lyd_node *dnode;
+	struct interface *ifp;
+
+	dnode = yang_dnode_get(vty->candidate_config->dnode,
+			       "%s/frr-isisd:isis", VTY_CURR_XPATH);
+	if (dnode == NULL) {
+		vty_out(vty, "ISIS is not enabled on this circuit\n");
+		return CMD_SUCCESS;
+	}
+
+	ifp = nb_running_get_entry(NULL, VTY_CURR_XPATH, false);
+	if (if_is_loopback(ifp)) {
+		vty_out(vty, "ldp-sync does not run on loopback interface\n");
+		return CMD_SUCCESS;
+	}
+
+	if (ifp->vrf_id != VRF_DEFAULT) {
+		vty_out(vty, "ldp-sync only runs on DEFAULT VRF\n");
+		return CMD_SUCCESS;
+	}
+
+	nb_cli_enqueue_change(vty, "./frr-isisd:isis/mpls/ldp-sync",
+			      NB_OP_MODIFY, no ? "false" : "true");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+
+void cli_show_isis_mpls_if_ldp_sync(struct vty *vty, struct lyd_node *dnode,
+				    bool show_defaults)
+{
+	if (!yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " no");
+
+	vty_out(vty, " isis mpls ldp-sync\n");
+}
+
+DEFPY(isis_mpls_if_ldp_sync_holddown, isis_mpls_if_ldp_sync_holddown_cmd,
+      "isis mpls ldp-sync holddown (0-10000)",
+      "IS-IS routing protocol\n" MPLS_STR MPLS_LDP_SYNC_STR
+      "Time to wait for LDP-SYNC to occur before restoring interface metric\n"
+      "Time in seconds\n")
+{
+	const struct lyd_node *dnode;
+	struct interface *ifp;
+
+	dnode = yang_dnode_get(vty->candidate_config->dnode,
+			       "%s/frr-isisd:isis", VTY_CURR_XPATH);
+	if (dnode == NULL) {
+		vty_out(vty, "ISIS is not enabled on this circuit\n");
+		return CMD_SUCCESS;
+	}
+
+	ifp = nb_running_get_entry(NULL, VTY_CURR_XPATH, false);
+	if (if_is_loopback(ifp)) {
+		vty_out(vty, "ldp-sync does not run on loopback interface\n");
+		return CMD_SUCCESS;
+	}
+
+	if (ifp->vrf_id != VRF_DEFAULT) {
+		vty_out(vty, "ldp-sync only runs on DEFAULT VRF\n");
+		return CMD_SUCCESS;
+	}
+
+	nb_cli_enqueue_change(vty, "./frr-isisd:isis/mpls/holddown",
+			      NB_OP_MODIFY, holddown_str);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY(no_isis_mpls_if_ldp_sync_holddown, no_isis_mpls_if_ldp_sync_holddown_cmd,
+      "no isis mpls ldp-sync holddown",
+      NO_STR "IS-IS routing protocol\n" MPLS_STR NO_MPLS_LDP_SYNC_STR
+	      NO_MPLS_LDP_SYNC_HOLDDOWN_STR)
+{
+	const struct lyd_node *dnode;
+	struct interface *ifp;
+
+	dnode = yang_dnode_get(vty->candidate_config->dnode,
+			       "%s/frr-isisd:isis", VTY_CURR_XPATH);
+	if (dnode == NULL) {
+		vty_out(vty, "ISIS is not enabled on this circuit\n");
+		return CMD_SUCCESS;
+	}
+
+	ifp = nb_running_get_entry(NULL, VTY_CURR_XPATH, false);
+	if (if_is_loopback(ifp)) {
+		vty_out(vty, "ldp-sync does not run on loopback interface\n");
+		return CMD_SUCCESS;
+	}
+
+	if (ifp->vrf_id != VRF_DEFAULT) {
+		vty_out(vty, "ldp-sync only runs on DEFAULT VRF\n");
+		return CMD_SUCCESS;
+	}
+
+	nb_cli_enqueue_change(vty, "./frr-isisd:isis/mpls/holddown",
+			      NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_isis_mpls_if_ldp_sync_holddown(struct vty *vty,
+					     struct lyd_node *dnode,
+					     bool show_defaults)
+{
+	vty_out(vty, " isis mpls ldp-sync holddown %s\n",
+		yang_dnode_get_string(dnode, NULL));
+}
+
 void isis_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_isis_cmd);
@@ -2423,6 +2624,14 @@ void isis_cli_init(void)
 	install_element(INTERFACE_NODE, &no_isis_priority_cmd);
 
 	install_element(ISIS_NODE, &log_adj_changes_cmd);
+
+	install_element(ISIS_NODE, &isis_mpls_ldp_sync_cmd);
+	install_element(ISIS_NODE, &no_isis_mpls_ldp_sync_cmd);
+	install_element(ISIS_NODE, &isis_mpls_ldp_sync_holddown_cmd);
+	install_element(ISIS_NODE, &no_isis_mpls_ldp_sync_holddown_cmd);
+	install_element(INTERFACE_NODE, &isis_mpls_if_ldp_sync_cmd);
+	install_element(INTERFACE_NODE, &isis_mpls_if_ldp_sync_holddown_cmd);
+	install_element(INTERFACE_NODE, &no_isis_mpls_if_ldp_sync_holddown_cmd);
 }
 
 #endif /* ifndef FABRICD */
