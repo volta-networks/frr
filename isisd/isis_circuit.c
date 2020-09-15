@@ -71,12 +71,60 @@ DEFINE_HOOK(isis_if_new_hook, (struct interface *ifp), (ifp))
 int isis_if_new_hook(struct interface *);
 int isis_if_delete_hook(struct interface *);
 
+static int isis_circuit_smmp_id_gen(struct isis_circuit *circuit)
+{
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct isis *isis = NULL;
+	uint32_t id;
+	uint32_t i;
+
+	/* LYNNE need to figure out where to move this call */
+	isis = isis_lookup_by_vrfid(vrf->vrf_id);
+	if (isis == NULL)
+		return 0;
+
+	id = isis->snmp_circuit_id_last;
+	id++;
+
+	for (i = 0; i < SNMP_CIRCUITS_MAX; i++) {
+		if (id >= SNMP_CIRCUITS_MAX) {
+			id = 0;
+			continue;
+		}
+
+		if (id == 0)
+			continue;
+
+		if (isis->snmp_circuits[id] == NULL)
+			break;
+
+		id++;
+	}
+
+	if (i == SNMP_CIRCUITS_MAX) {
+		zlog_warn("Could not allocate a smmp-circuit-id");
+		return 0;
+	}
+
+	isis->snmp_circuits[id] = circuit;
+	isis->snmp_circuit_id_last = id;
+	circuit->snmp_id = id;
+
+	return 1;
+}
+
 struct isis_circuit *isis_circuit_new(void)
 {
 	struct isis_circuit *circuit;
 	int i;
 
 	circuit = XCALLOC(MTYPE_ISIS_CIRCUIT, sizeof(struct isis_circuit));
+
+	/*
+	 * Note: if snmp-id generation failed circuit will fail
+	 * up operation
+	 */
+	isis_circuit_smmp_id_gen(circuit);
 
 	/*
 	 * Default values
@@ -147,10 +195,17 @@ struct isis_circuit *isis_circuit_new(void)
 
 void isis_circuit_del(struct isis_circuit *circuit)
 {
+	struct isis *isis = NULL;
+
 	if (!circuit)
 		return;
 
 	QOBJ_UNREG(circuit);
+
+	if (circuit->interface) {
+		isis = isis_lookup_by_vrfid(circuit->interface->vrf_id);
+		isis->snmp_circuits[circuit->snmp_id] = NULL;
+	}
 
 	isis_circuit_if_unbind(circuit, circuit->interface);
 
@@ -612,8 +667,17 @@ int isis_circuit_up(struct isis_circuit *circuit)
 	if (circuit->state == C_STATE_UP)
 		return ISIS_OK;
 
-	if (circuit->is_passive)
+	if (circuit->snmp_id == 0) {
+		/* We cannot bring circuit up if does not have snmp-id */
+		flog_err(EC_ISIS_CONFIG,
+			 "No snnmp-id: there are too many cricuits:");
+		return ISIS_ERROR;
+	}
+
+	if (circuit->is_passive) {
+		circuit->last_uptime = time(NULL);
 		return ISIS_OK;
+	}
 
 	if (circuit->area->lsp_mtu > isis_circuit_pdu_size(circuit)) {
 		flog_err(
@@ -713,6 +777,8 @@ int isis_circuit_up(struct isis_circuit *circuit)
 	isis_circuit_prepare(circuit);
 
 	circuit->tx_queue = isis_tx_queue_new(circuit, send_lsp);
+
+	circuit->last_uptime = time(NULL);
 
 #ifndef FABRICD
 	/* send northbound notification */
@@ -819,6 +885,15 @@ void isis_circuit_down(struct isis_circuit *circuit)
 		circuit->u.p2p.neighbor = NULL;
 		THREAD_TIMER_OFF(circuit->u.p2p.t_send_p2p_hello);
 	}
+
+	/*
+	 * All adjacencies have to be gone, delete snmp list
+	 * and reset snmpd idx generator
+	 */
+	if (circuit->snmp_adj_list != NULL)
+		list_delete(&circuit->snmp_adj_list);
+
+	circuit->snmp_adj_idx_gen = 0;
 
 	/* Cancel all active threads */
 	THREAD_TIMER_OFF(circuit->t_send_csnp[0]);

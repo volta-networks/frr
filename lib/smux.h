@@ -69,6 +69,7 @@ struct trap_object {
 	(*var_len = sizeof(struct in_addr), snmp_in_addr_val = V,              \
 	 (uint8_t *)&snmp_in_addr_val)
 
+extern int smux_enabled(void);
 extern void smux_init(struct thread_master *tm);
 extern void smux_register_mib(const char *, struct variable *, size_t, int,
 			      oid[], size_t);
@@ -101,6 +102,8 @@ extern int smux_header_table(struct variable *, oid *, size_t *, int, size_t *,
 extern int smux_trap(struct variable *, size_t, const oid *, size_t,
 		     const oid *, size_t, const oid *, size_t,
 		     const struct trap_object *, size_t, uint8_t);
+
+extern void smux_events_update(void);
 
 extern int oid_compare(const oid *, int, const oid *, int);
 extern void oid2in_addr(oid[], int, struct in_addr *);

@@ -23,6 +23,7 @@ else
 TESTS_ISISD = \
 	tests/isisd/test_fuzz_isis_tlv \
 	tests/isisd/test_isis_lspdb \
+	tests/isisd/test_isis_snmp \
 	tests/isisd/test_isis_spf \
 	tests/isisd/test_isis_vertex_queue \
 	# end
