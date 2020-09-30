@@ -32,6 +32,7 @@
 #include "memory.h"
 #include "privs.h"
 #include "sigevent.h"
+#include "libfrr.h"
 
 static void	 ldpe_shutdown(void);
 static int	 ldpe_dispatch_main(struct thread *);
@@ -109,7 +110,16 @@ ldpe(void)
 	ldpd_process = PROC_LDP_ENGINE;
 	log_procname = log_procnames[ldpd_process];
 
-	master = thread_master_create(NULL);
+	master = frr_init();
+
+	frr_load_module("snmp");
+
+#if 0
+	/* read configuration file and daemonize  */
+	frr_config_fork();
+#endif
+
+        frr_trigger_late_init();
 
 	/* setup signal handler */
 	signal_init(master, array_size(ldpe_signals), ldpe_signals);
@@ -131,9 +141,10 @@ ldpe(void)
 	/* create base configuration */
 	leconf = config_new_empty();
 
-	/* Fetch next active thread. */
-	while (thread_fetch(master, &thread))
-		thread_call(&thread);
+	frr_run(master);
+
+	/* NOTREACHED */
+	return;
 }
 
 void

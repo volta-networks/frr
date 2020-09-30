@@ -70,6 +70,7 @@ struct trap_object {
 	 (uint8_t *)&snmp_in_addr_val)
 
 extern void smux_init(struct thread_master *tm);
+extern void smux_agentx_enable_cmd(void);
 extern void smux_register_mib(const char *, struct variable *, size_t, int,
 			      oid[], size_t);
 extern int smux_header_generic(struct variable *, oid[], size_t *, int,

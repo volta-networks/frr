@@ -133,7 +133,16 @@ lde(void)
 	ldpd_process = PROC_LDE_ENGINE;
 	log_procname = log_procnames[PROC_LDE_ENGINE];
 
-	master = thread_master_create(NULL);
+	master = frr_init();
+
+	frr_load_module("snmp");
+
+#if 0
+	/* read configuration file and daemonize  */
+	frr_config_fork();
+#endif
+
+	frr_trigger_late_init();
 
 	/* setup signal handler */
 	signal_init(master, array_size(lde_signals), lde_signals);
@@ -155,9 +164,10 @@ lde(void)
 	/* create base configuration */
 	ldeconf = config_new_empty();
 
-	/* Fetch next active thread. */
-	while (thread_fetch(master, &thread))
-		thread_call(&thread);
+	frr_run(master);
+
+	/* NOTREACHED */
+	return;
 }
 
 void

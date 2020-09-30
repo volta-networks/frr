@@ -37,6 +37,7 @@
 #include "smux.h"
 #include "libfrr.h"
 #include "version.h"
+#include "ldpd.h"
 
 /* MPLS-LDP-STD-MIB. */
 #define MPLS_LDP_STD_MIB 1, 3, 6, 1, 2, 1, 10, 166, 4
@@ -67,6 +68,8 @@ static uint8_t *ldpLoopDetectCap(struct variable *v, oid name[], size_t *length,
             == MATCH_FAILED)
                 return NULL;
 
+syslog(LOG_INFO, "SNMPDBG: %s: %d: getpid=%d: ldpd_process=%d", __FUNCTION__, __LINE__, getpid(), ldpd_process);
+
 	// SNMP_TODO: return correct value...
         return SNMP_INTEGER(1);
 }
@@ -78,7 +81,19 @@ static struct variable ldp_variables[] = {
 /* Register MPLS-LDP-STD-MIB. */
 static int ldp_snmp_init(struct thread_master *tm)
 {
+syslog(LOG_INFO, "SNMPDBG: %s: %d: getpid=%d: ldpd_process=%d", __FUNCTION__, __LINE__, getpid(), ldpd_process);
+
+	if (ldpd_process != PROC_LDP_ENGINE)
+	{
+		return 0;
+	}
+
+	/* Perform MIB registration for the PROC_LDP_ENGINE */
+syslog(LOG_INFO, "SNMPDBG: %s: %d: getpid=%d: ldpd_process=%d", __FUNCTION__, __LINE__, getpid(), ldpd_process);
+
 	smux_init(tm);
+
+	smux_agentx_enable_cmd();
 
 	REGISTER_MIB("mibII/ldp", ldp_variables, variable, ldp_oid);
 
