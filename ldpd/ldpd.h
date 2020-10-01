@@ -885,4 +885,8 @@ int		 ldp_sync_zebra_send_state_update(struct ldp_igp_sync_if_state *);
 	(__IPV6_ADDR_MC_SCOPE(a) == __IPV6_ADDR_SCOPE_INTFACELOCAL))
 #endif
 
+DECLARE_HOOK(ldp_late_init, (struct thread_master * tm), (tm))
+
+extern void ldp_trigger_late_init(void);
+
 #endif	/* _LDPD_H_ */

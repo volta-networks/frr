@@ -70,6 +70,8 @@ static uint8_t *ldpLoopDetectCap(struct variable *v, oid name[], size_t *length,
 
 syslog(LOG_INFO, "SNMPDBG: %s: %d: getpid=%d: ldpd_process=%d", __FUNCTION__, __LINE__, getpid(), ldpd_process);
 
+log_debug("SNMPDBG: %s: %d: getpid=%d: ldpd_process=%d", __FUNCTION__, __LINE__, getpid(), ldpd_process);
+
 	// SNMP_TODO: return correct value...
         return SNMP_INTEGER(1);
 }
@@ -103,6 +105,8 @@ syslog(LOG_INFO, "SNMPDBG: %s: %d: getpid=%d: ldpd_process=%d", __FUNCTION__, __
 static int ldp_snmp_module_init(void)
 {
 	hook_register(frr_late_init, ldp_snmp_init);
+
+	hook_register(ldp_late_init, ldp_snmp_init);
 
 	return 0;
 }

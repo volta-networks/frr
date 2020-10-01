@@ -919,11 +919,6 @@ static int frr_config_read_in(struct thread *t)
 	return 0;
 }
 
-void frr_trigger_late_init(void)
-{
-	hook_call(frr_late_init, master);
-}
-
 void frr_load_module(const char *name)
 {
 	const char *dir;

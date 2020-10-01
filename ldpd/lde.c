@@ -125,8 +125,6 @@ static struct quagga_signal_t lde_signals[] =
 void
 lde(void)
 {
-	struct thread		 thread;
-
 #ifdef HAVE_SETPROCTITLE
 	setproctitle("label decision engine");
 #endif
@@ -142,7 +140,7 @@ lde(void)
 	frr_config_fork();
 #endif
 
-	frr_trigger_late_init();
+	ldp_trigger_late_init();
 
 	/* setup signal handler */
 	signal_init(master, array_size(lde_signals), lde_signals);

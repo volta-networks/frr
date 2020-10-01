@@ -86,6 +86,13 @@ static struct imsgev	*iev_lde, *iev_lde_sync;
 static pid_t		 ldpe_pid;
 static pid_t		 lde_pid;
 
+DEFINE_HOOK(ldp_late_init, (struct thread_master * tm), (tm))
+
+void ldp_trigger_late_init(void)
+{
+	hook_call(ldp_late_init, master);
+}
+
 enum ldpd_process ldpd_process;
 
 #define LDP_DEFAULT_CONFIG	"ldpd.conf"
