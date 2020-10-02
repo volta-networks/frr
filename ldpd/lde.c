@@ -162,7 +162,9 @@ lde(void)
 	/* create base configuration */
 	ldeconf = config_new_empty();
 
-	frr_run(master);
+	struct thread thread;
+	while (thread_fetch(master, &thread))
+		thread_call(&thread);
 
 	/* NOTREACHED */
 	return;

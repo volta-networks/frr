@@ -42,7 +42,8 @@
 /* MPLS-LDP-STD-MIB. */
 #define MPLS_LDP_STD_MIB 1, 3, 6, 1, 2, 1, 10, 166, 4
 
-#define MPLS_LDP_LSR_LOOP_DETECTION_CAPABLE 0
+#define MPLS_LDP_LSR_ID                         0
+#define MPLS_LDP_LSR_LOOP_DETECTION_CAPABLE 	0
 
 /* SNMP value hack. */
 #define COUNTER32 ASN_COUNTER
@@ -60,6 +61,26 @@ static oid ldp_oid[] = {MPLS_LDP_STD_MIB};
 
 /* Hook functions. */
 
+uint32_t g_lsrId = 0;
+static uint8_t *ldpLsrId(struct variable *v, oid name[], size_t *length,
+				int exact, size_t *var_len,
+				WriteMethod **write_method)
+{
+log_debug("SNMPDBG: %s: %d: getpid=%d: ldpd_process=%d", __FUNCTION__, __LINE__, getpid(), ldpd_process);
+
+        if (smux_header_generic(v, name, length, exact, var_len, write_method)
+            == MATCH_FAILED)
+                return NULL;
+
+	uint32_t myLsrId = 0x01020304;
+
+	g_lsrId = htonl(myLsrId);
+
+	*var_len = 4;
+
+        return (uint8_t *)&g_lsrId;
+}
+
 static uint8_t *ldpLoopDetectCap(struct variable *v, oid name[], size_t *length,
                            int exact, size_t *var_len,
                            WriteMethod **write_method)
@@ -68,15 +89,18 @@ static uint8_t *ldpLoopDetectCap(struct variable *v, oid name[], size_t *length,
             == MATCH_FAILED)
                 return NULL;
 
-syslog(LOG_INFO, "SNMPDBG: %s: %d: getpid=%d: ldpd_process=%d", __FUNCTION__, __LINE__, getpid(), ldpd_process);
-
 log_debug("SNMPDBG: %s: %d: getpid=%d: ldpd_process=%d", __FUNCTION__, __LINE__, getpid(), ldpd_process);
 
 	// SNMP_TODO: return correct value...
         return SNMP_INTEGER(1);
 }
 
-static struct variable ldp_variables[] = {
+static struct variable lde_variables[] = {
+	{MPLS_LDP_LSR_ID, STRING, RONLY, ldpLsrId, 3, {1, 1, 1}},
+};
+
+static struct variable ldpe_variables[] = {
+	//{MPLS_LDP_LSR_ID, STRING, RONLY, ldpLsrId, 3, {1, 1, 1}},
 	{MPLS_LDP_LSR_LOOP_DETECTION_CAPABLE, INTEGER, RONLY, ldpLoopDetectCap, 3, {1, 1, 2}},
 };
 
@@ -85,19 +109,27 @@ static int ldp_snmp_init(struct thread_master *tm)
 {
 syslog(LOG_INFO, "SNMPDBG: %s: %d: getpid=%d: ldpd_process=%d", __FUNCTION__, __LINE__, getpid(), ldpd_process);
 
-	if (ldpd_process != PROC_LDP_ENGINE)
-	{
+	if (ldpd_process == PROC_MAIN)
 		return 0;
+
+	if (ldpd_process == PROC_LDE_ENGINE) {
+syslog(LOG_INFO, "SNMPDBG: %s: %d: getpid=%d: ldpd_process=%d", __FUNCTION__, __LINE__, getpid(), ldpd_process);
+		smux_init(tm);
+
+		smux_agentx_enable_cmd();
+
+		REGISTER_MIB("mibII/ldp", lde_variables, variable, ldp_oid);
 	}
 
-	/* Perform MIB registration for the PROC_LDP_ENGINE */
+        /* Perform MIB registration for the PROC_LDP_ENGINE */
+	if (ldpd_process == PROC_LDP_ENGINE) {
 syslog(LOG_INFO, "SNMPDBG: %s: %d: getpid=%d: ldpd_process=%d", __FUNCTION__, __LINE__, getpid(), ldpd_process);
+		smux_init(tm);
 
-	smux_init(tm);
+		smux_agentx_enable_cmd();
 
-	smux_agentx_enable_cmd();
-
-	REGISTER_MIB("mibII/ldp", ldp_variables, variable, ldp_oid);
+		REGISTER_MIB("mibII/ldp", ldpe_variables, variable, ldp_oid);
+	}
 
 	return 0;
 }
