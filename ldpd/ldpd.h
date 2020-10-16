@@ -157,7 +157,8 @@ enum imsg_type {
 	IMSG_FILTER_UPDATE,
 	IMSG_NBR_SHUTDOWN,
 	IMSG_LDP_SYNC_IF_STATE_REQUEST,
-	IMSG_LDP_SYNC_IF_STATE_UPDATE
+	IMSG_LDP_SYNC_IF_STATE_UPDATE,
+	IMSG_AGENTX_ENABLED,
 };
 
 struct ldpd_init {
@@ -885,8 +886,8 @@ int		 ldp_sync_zebra_send_state_update(struct ldp_igp_sync_if_state *);
 	(__IPV6_ADDR_MC_SCOPE(a) == __IPV6_ADDR_SCOPE_INTFACELOCAL))
 #endif
 
-DECLARE_HOOK(ldp_late_init, (struct thread_master * tm), (tm))
+DECLARE_HOOK(ldp_register_mib, (struct thread_master * tm), (tm))
 
-extern void ldp_trigger_late_init(void);
+extern void ldp_agentx_enabled(void);
 
 #endif	/* _LDPD_H_ */

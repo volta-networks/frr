@@ -33,6 +33,8 @@
 #include "version.h"
 #include "lib_errors.h"
 
+DEFINE_HOOK(agentx_enabled, (), ())
+
 static int agentx_enabled = 0;
 
 static struct thread_master *agentx_tm;
@@ -222,6 +224,7 @@ DEFUN (agentx_enable,
 		events = list_new();
 		agentx_events_update();
 		agentx_enabled = 1;
+		hook_call(agentx_enabled);
 	}
 
 	return CMD_SUCCESS;
@@ -255,7 +258,7 @@ void smux_init(struct thread_master *tm)
 	install_element(CONFIG_NODE, &no_agentx_cmd);
 }
 
-void smux_agentx_enable_cmd(void)
+void smux_agentx_enable(void)
 {
 	if (!agentx_enabled) {
 		init_snmp(FRR_SMUX_NAME);

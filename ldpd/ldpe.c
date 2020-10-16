@@ -110,14 +110,10 @@ ldpe(void)
 
 	master = frr_init();
 
-	frr_load_module("snmp");
-
 #if 0
 	/* read configuration file and daemonize  */
 	frr_config_fork();
 #endif
-
-        ldp_trigger_late_init();
 
 	/* setup signal handler */
 	signal_init(master, array_size(ldpe_signals), ldpe_signals);
@@ -392,6 +388,9 @@ ldpe_dispatch_main(struct thread *thread)
 
 			memcpy(&init, imsg.data, sizeof(init));
 			ldpe_init(&init);
+			break;
+		case IMSG_AGENTX_ENABLED:
+			ldp_agentx_enabled();
 			break;
 		case IMSG_CLOSE_SOCKETS:
 			af = imsg.hdr.peerid;

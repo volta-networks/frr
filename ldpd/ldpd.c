@@ -86,11 +86,12 @@ static struct imsgev	*iev_lde, *iev_lde_sync;
 static pid_t		 ldpe_pid;
 static pid_t		 lde_pid;
 
-DEFINE_HOOK(ldp_late_init, (struct thread_master * tm), (tm))
+DEFINE_HOOK(ldp_register_mib, (struct thread_master * tm), (tm))
 
-void ldp_trigger_late_init(void)
+void ldp_agentx_enabled(void)
 {
-	hook_call(ldp_late_init, master);
+	frr_load_module("snmp");
+	hook_call(ldp_register_mib, master);
 }
 
 enum ldpd_process ldpd_process;

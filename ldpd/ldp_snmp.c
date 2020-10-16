@@ -104,41 +104,49 @@ static struct variable ldpe_variables[] = {
 	{MPLS_LDP_LSR_LOOP_DETECTION_CAPABLE, INTEGER, RONLY, ldpLoopDetectCap, 3, {1, 1, 2}},
 };
 
-/* Register MPLS-LDP-STD-MIB. */
+static int ldp_snmp_agentx_enabled()
+{
+log_debug("LDPSNMPDBG: %s: %d: getpid=%d: ldpd_process=%d: before call: main_imsg_compose_both(IMSG_AGENTX)", __FUNCTION__, __LINE__, getpid(), ldpd_process);
+
+	main_imsg_compose_both(IMSG_AGENTX_ENABLED, NULL, 0);
+
+	return 0;
+}
+
 static int ldp_snmp_init(struct thread_master *tm)
 {
 syslog(LOG_INFO, "SNMPDBG: %s: %d: getpid=%d: ldpd_process=%d", __FUNCTION__, __LINE__, getpid(), ldpd_process);
 
-	if (ldpd_process == PROC_MAIN)
-		return 0;
+	hook_register(agentx_enabled, ldp_snmp_agentx_enabled);
 
-	if (ldpd_process == PROC_LDE_ENGINE) {
+	smux_init(tm);
+
+	return 0;
+}
+
+static int ldp_snmp_register_mib(struct thread_master *tm)
+{
 syslog(LOG_INFO, "SNMPDBG: %s: %d: getpid=%d: ldpd_process=%d", __FUNCTION__, __LINE__, getpid(), ldpd_process);
-		smux_init(tm);
 
-		smux_agentx_enable_cmd();
+	smux_init(tm);
 
+	smux_agentx_enable();
+
+	if (ldpd_process == PROC_LDE_ENGINE)
 		REGISTER_MIB("mibII/ldp", lde_variables, variable, ldp_oid);
-	}
-
-        /* Perform MIB registration for the PROC_LDP_ENGINE */
-	if (ldpd_process == PROC_LDP_ENGINE) {
-syslog(LOG_INFO, "SNMPDBG: %s: %d: getpid=%d: ldpd_process=%d", __FUNCTION__, __LINE__, getpid(), ldpd_process);
-		smux_init(tm);
-
-		smux_agentx_enable_cmd();
-
+	else if (ldpd_process == PROC_LDP_ENGINE)
 		REGISTER_MIB("mibII/ldp", ldpe_variables, variable, ldp_oid);
-	}
 
+syslog(LOG_INFO, "SNMPDBG: %s: %d: getpid=%d: ldpd_process=%d", __FUNCTION__, __LINE__, getpid(), ldpd_process);
 	return 0;
 }
 
 static int ldp_snmp_module_init(void)
 {
-	hook_register(frr_late_init, ldp_snmp_init);
-
-	hook_register(ldp_late_init, ldp_snmp_init);
+	if (ldpd_process == PROC_MAIN)
+		hook_register(frr_late_init, ldp_snmp_init);
+	else
+		hook_register(ldp_register_mib, ldp_snmp_register_mib);
 
 	return 0;
 }

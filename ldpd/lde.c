@@ -133,14 +133,10 @@ lde(void)
 
 	master = frr_init();
 
-	frr_load_module("snmp");
-
 #if 0
 	/* read configuration file and daemonize  */
 	frr_config_fork();
 #endif
-
-	ldp_trigger_late_init();
 
 	/* setup signal handler */
 	signal_init(master, array_size(lde_signals), lde_signals);
@@ -570,6 +566,9 @@ lde_dispatch_parent(struct thread *thread)
 
 			memcpy(&init, imsg.data, sizeof(init));
 			lde_init(&init);
+			break;
+		case IMSG_AGENTX_ENABLED:
+			ldp_agentx_enabled();
 			break;
 		case IMSG_RECONF_CONF:
 			if ((nconf = malloc(sizeof(struct ldpd_conf))) ==
