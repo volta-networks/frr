@@ -54,11 +54,27 @@ class SnmpTester(object):
     def walk(self, oid):
         cmd = "snmpwalk {0} {1}".format(self._snmp_config(), oid)
 
+        logger.info("SNMPDBG: walk: cmd:{0} ".format(
+            cmd)
+        )
+
         result = self.router.cmd(cmd)
+
+        logger.info("SNMPDBG: walk: result:{0} ".format(
+            result)
+        )
         return self._parse_multiline(result)
 
     def test_oid(self, oid, value):
-        return self.get_next(oid) == value
+        result = self.get_next(oid)
+        logger.info("SNMPDBG: test_oid: oid:{0} value:{1} result:{2}".format(
+            oid, value, result)
+        )
+        return result == value
 
     def test_oid_walk(self, oid, values):
-        return self.walk(oid) == values
+        result = self.walk(oid)
+        logger.info("SNMPDBG: test_oid: oid:{0} values:{1} result:{2}".format(
+            oid, values, result)
+        )
+        return result == values

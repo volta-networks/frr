@@ -76,6 +76,7 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
+from lib.snmptest import SnmpTester
 
 # Required to instantiate the topology builder class.
 from mininet.topo import Topo
@@ -134,17 +135,21 @@ def setup_module(mod):
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
-        # Don't start isisd and ldpd in the CE nodes
+        # Don't start the following in the CE nodes
         if router.name[0] == "r":
             router.load_config(
-                TopoRouter.RD_ISIS, os.path.join(CWD, "{}/isisd.conf".format(rname))
+                TopoRouter.RD_ISIS, os.path.join(CWD, "{}/isisd.conf".format(rname)),
+                "-M /usr/lib/frr/modules/isisd_snmp.so"
             )
             router.load_config(
                 TopoRouter.RD_LDP, os.path.join(CWD, "{}/ldpd.conf".format(rname))
             )
+            router.load_config(
+                TopoRouter.RD_SNMP, os.path.join(CWD, "{}/snmpd.conf".format(rname)),
+                "-Le -Ivacm_conf,usmConf,iquery -V -DAgentX,trap"
+            )
 
     tgen.start_router()
-
 
 def teardown_module(mod):
     "Teardown the pytest environment"
@@ -152,7 +157,6 @@ def teardown_module(mod):
 
     # This function tears down the whole topology.
     tgen.stop_topology()
-
 
 def router_compare_json_output(rname, command, reference):
     "Compare router JSON output"
@@ -169,14 +173,9 @@ def router_compare_json_output(rname, command, reference):
     assertmsg = '"{}" JSON output mismatches the expected result'.format(rname)
     assert diff is None, assertmsg
 
-
 def test_isis_convergence():
     logger.info("Test: check ISIS adjacencies")
     tgen = get_topogen()
-
-    # Skip if previous fatal error condition is raised
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
 
     for rname in ["r1", "r2", "r3"]:
         router_compare_json_output(
@@ -184,208 +183,18 @@ def test_isis_convergence():
             "show yang operational-data /frr-interface:lib isisd",
             "show_yang_interface_isis_adjacencies.ref")
 
-def test_rib():
-    logger.info("Test: verify RIB")
+def test_r1_converge_snmp():
+    "Wait for protocol convergence"
     tgen = get_topogen()
 
-    # Skip if previous fatal error condition is raised
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
+    #tgen.mininet_cli()
+    r1 = tgen.net.get("r1")
+    r1_snmp = SnmpTester(r1, "1.1.1.1", "public", "2c")
 
-    for rname in ["r1", "r2", "r3"]:
-        router_compare_json_output(rname, "show ip route json", "show_ip_route.ref")
-
-# Memory leak test template
-def test_memory_leak():
-    "Run the memory leak test and report results."
-    tgen = get_topogen()
-    if not tgen.is_memleak_enabled():
-        pytest.skip("Memory leak test/report is disabled")
-
-    tgen.report_memory_leaks()
-
+    assert r1_snmp.test_oid('isisSysVersion', "one(1)")
+    assert r1_snmp.test_oid_walk('isisCircAdminState', ['on(1)', 'on(1)', 'on(1)', 'on(1)'])
 
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
-
-
-#
-# Auxiliary functions
-#
-
-def parse_show_isis_ldp_sync(lines, rname):
-    """
-    Parse the output of 'show isis mpls ldp sync' into a Python dict.
-    """
-    interfaces = {}
-
-    it = iter(lines)
-
-    while True:
-        try:
-            interface = {}
-            interface_name = None
-
-            line = it.next();
-
-            if line.startswith(rname + "-eth"):
-                interface_name = line
-
-            line = it.next();
-
-            if line.startswith(" LDP-IGP Synchronization enabled: "):
-                interface["ldpIgpSyncEnabled"] = line.endswith("yes")
-
-            line = it.next();
-
-            if line.startswith(" holddown timer in seconds: "):
-                interface["holdDownTimeInSec"] = int(line.split(": ")[-1])
-
-            line = it.next();
-
-            if line.startswith(" State: "):
-                interface["ldpIgpSyncState"] = line.split(": ")[-1]
-
-            interfaces[interface_name] = interface
-
-        except StopIteration:
-            break
-
-    return interfaces
-
-
-def show_isis_ldp_sync(router, rname):
-    """
-    Get the show isis mpls ldp-sync info in a dictionary format.
-
-    """
-    out = topotest.normalize_text(
-        router.vtysh_cmd("show isis mpls ldp-sync")
-    ).splitlines()
-
-    parsed = parse_show_isis_ldp_sync(out, rname)
-
-    return parsed
-
-
-def validate_show_isis_ldp_sync(rname, fname):
-    tgen = get_topogen()
-
-    filename = "{0}/{1}/{2}".format(CWD, rname, fname)
-    expected = json.loads(open(filename).read())
-
-    router = tgen.gears[rname]
-
-    def compare_isis_ldp_sync(router, expected):
-        "Helper function to test show isis mpls ldp-sync"
-        actual = show_isis_ldp_sync(router, rname)
-        return topotest.json_cmp(actual, expected)
-
-    test_func = partial(compare_isis_ldp_sync, router, expected)
-    (result, diff) = topotest.run_and_expect(test_func, None, wait=0.5, count=160)
-
-    return (result, diff)
-
-
-def parse_show_isis_interface_detail(lines, rname):
-    """
-    Parse the output of 'show isis interface detail' into a Python dict.
-    """
-    areas = {}
-    area_id = None
-
-    it = iter(lines)
-
-    while True:
-        try:
-            line = it.next();
-
-            area_match = re.match(r"Area (.+):", line)
-            if not area_match:
-                continue
-
-            area_id = area_match.group(1)
-            area = {}
-
-            line = it.next();
-
-            while line.startswith(" Interface: "):
-                interface_name = re.split(':|,', line)[1].lstrip()
-
-                area[interface_name]= []
-
-                # Look for keyword: Level-1 or Level-2
-                while not line.startswith(" Level-"):
-                    line = it.next();
-
-                while line.startswith(" Level-"):
-
-                    level = {}
-
-                    level_name = line.split()[0]
-                    level['level'] = level_name
-
-                    line = it.next();
-
-                    if line.startswith(" Metric:"):
-                        level['metric'] = re.split(':|,', line)[1].lstrip()
-
-                    area[interface_name].append(level)
-
-                    # Look for keyword: Level-1 or Level-2 or Interface:
-                    while not line.startswith(" Level-") and not line.startswith(" Interface: "):
-                        line = it.next();
-
-                    if line.startswith(" Level-"):
-                        continue
-
-                    if line.startswith(" Interface: "):
-                        break
-
-            areas[area_id] = area
-
-        except StopIteration:
-
-            areas[area_id] = area
-            break
-
-    return areas
-
-
-def show_isis_interface_detail(router, rname):
-    """
-    Get the show isis mpls ldp-sync info in a dictionary format.
-
-    """
-    out = topotest.normalize_text(
-        router.vtysh_cmd("show isis interface detail")
-    ).splitlines()
-
-    logger.warning(out)
-
-    parsed = parse_show_isis_interface_detail(out, rname)
-
-    logger.warning(parsed)
-
-    return parsed
-
-
-def validate_show_isis_interface_detail(rname, fname):
-    tgen = get_topogen()
-
-    filename = "{0}/{1}/{2}".format(CWD, rname, fname)
-    expected = json.loads(open(filename).read())
-
-    router = tgen.gears[rname]
-
-    def compare_isis_interface_detail(router, expected):
-        "Helper function to test show isis interface detail"
-        actual = show_isis_interface_detail(router, rname)
-        return topotest.json_cmp(actual, expected)
-
-    test_func = partial(compare_isis_interface_detail, router, expected)
-    (result, diff) = topotest.run_and_expect(test_func, None, wait=0.5, count=160)
-
-    return (result, diff)
 
