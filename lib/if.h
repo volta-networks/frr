@@ -143,8 +143,7 @@ struct if_stats {
 #define TE_EXT_MASK             0x0FFFFFFF
 #define TE_EXT_ANORMAL          0x80000000
 #define LOSS_PRECISION          0.000003
-#define TE_MEGA_BIT             1000000
-#define TE_BYTE                 8
+#define MBIT_TO_BYTES 125000
 #define DEFAULT_BANDWIDTH       10000
 #define MAX_CLASS_TYPE          8
 #define MAX_PKT_LOSS            50.331642
@@ -175,7 +174,6 @@ struct if_stats {
 
 #define SET_PARAM(lp, st) (lp->lp_status) |= (st)
 #define UNSET_PARAM(lp, st) (lp->lp_status) &= ~(st)
-#define RESET_LINK_PARAM(lp) (lp->lp_status = LP_UNSET)
 
 /* Link Parameters for Traffic Engineering */
 struct if_link_params {
@@ -590,6 +588,7 @@ struct connected *connected_get_linklocal(struct interface *ifp);
 /* link parameters */
 struct if_link_params *if_link_params_get(struct interface *);
 void if_link_params_free(struct interface *);
+int update_link_params_bw(struct interface *ifp);
 
 /* Northbound. */
 extern void if_cmd_init(void);

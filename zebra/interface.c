@@ -1615,7 +1615,7 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 			vty_out(vty, "  Parent ifindex: %d\n", zebra_if->link_ifindex);
 	}
 
-	if (HAS_LINK_PARAMS(ifp)) {
+	if (HAS_LINK_PARAMS(ifp) && IS_LINK_PARAMS_SET(ifp->link_params)) {
 		int i;
 		struct if_link_params *iflp = ifp->link_params;
 		vty_out(vty, "  Traffic Engineering Link Parameters:\n");
@@ -1633,7 +1633,7 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 				"    Unreserved Bandwidth per Class Type in Byte/s:\n");
 			for (i = 0; i < MAX_CLASS_TYPE; i += 2)
 				vty_out(vty,
-					"      [%d]: %g (Bytes/sec),\t[%d]: %g (Bytes/sec)\n",
+					"      [%d]: %10.10g (Bytes/sec),\t[%d]: %10.10g (Bytes/sec)\n",
 					i, iflp->unrsv_bw[i], i + 1,
 					iflp->unrsv_bw[i + 1]);
 		}
@@ -2209,11 +2209,17 @@ DEFUN (bandwidth_if,
 
 	/* bandwidth range is <1-100000> */
 	if (bandwidth < 1 || bandwidth > 100000) {
-		vty_out(vty, "Bandwidth is invalid\n");
+		vty_out(vty,
+			"ERROR: Bandwidth is outside the valid range (1-100000)\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
 	ifp->bandwidth = bandwidth;
+
+	/* recalculate link parameters */
+	if (update_link_params_bw(ifp))
+		vty_out(vty,
+			"NOTICE: max-bw TE parameter has been reduced to match the new BW\n");
 
 	/* force protocols to recalculate routes due to cost change */
 	if (if_is_operative(ifp))
@@ -2232,6 +2238,11 @@ DEFUN (no_bandwidth_if,
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 
 	ifp->bandwidth = 0;
+
+	/* recalculate link parameters */
+	if (update_link_params_bw(ifp))
+		vty_out(vty,
+			"NOTICE: max-bw TE parameter has been reduced to match the new BW\n");
 
 	/* force protocols to recalculate routes due to cost change */
 	if (if_is_operative(ifp))
@@ -2278,13 +2289,81 @@ static void link_param_cmd_set_float(struct interface *ifp, float *field,
 	}
 }
 
-static void link_param_cmd_unset(struct interface *ifp, uint32_t type)
+static void link_param_unset_ursv_bw_class(struct interface *ifp, int priority)
 {
-	if (ifp->link_params == NULL)
+	if (!HAS_LINK_PARAMS(ifp) || priority >= MAX_CLASS_TYPE)
 		return;
 
+	int i;
+	struct if_link_params *iflp = ifp->link_params;
+
+	/* reset the single priority class, then check if there is anything
+	 * still set; if not, clear the flag too
+	 */
+	iflp->unrsv_bw[priority] = 0;
+	for (i = 0; i < MAX_CLASS_TYPE; i++)
+		if (iflp->unrsv_bw[i] != 0)
+			return;
+
+	/* if we are here, nothing is set - clear the flag */
+	UNSET_PARAM(iflp, LP_UNRSV_BW);
+}
+
+static void link_param_cmd_unset(struct interface *ifp, uint32_t type)
+{
+	struct if_link_params *iflp;
+
+	/* anything to do? */
+	if (!HAS_LINK_PARAMS(ifp) || IS_PARAM_UNSET(ifp->link_params, type))
+		return;
+
+	iflp = ifp->link_params;
 	/* Unset field */
-	UNSET_PARAM(ifp->link_params, type);
+	UNSET_PARAM(iflp, type);
+
+	/* 0 the actual value - strictly not needed, but... */
+	switch (type) {
+	case LP_TE_METRIC:
+		iflp->te_metric = 0;
+		break;
+	case LP_MAX_BW:
+		iflp->max_bw = 0;
+		break;
+	case LP_MAX_RSV_BW:
+		iflp->max_rsv_bw = 0;
+		break;
+	case LP_UNRSV_BW:
+		memset(iflp->unrsv_bw, 0, sizeof(iflp->unrsv_bw));
+		break;
+	case LP_ADM_GRP:
+		iflp->admin_grp = 0;
+		break;
+	case LP_RMT_AS:
+		iflp->rmt_as = 0;
+		break;
+	case LP_DELAY:
+		iflp->av_delay = 0;
+		break;
+	case LP_MM_DELAY:
+		iflp->max_delay = 0;
+		iflp->min_delay = 0;
+		break;
+	case LP_DELAY_VAR:
+		iflp->delay_var = 0;
+		break;
+	case LP_PKT_LOSS:
+		iflp->pkt_loss = 0;
+		break;
+	case LP_RES_BW:
+		iflp->res_bw = 0;
+		break;
+	case LP_AVA_BW:
+		iflp->ava_bw = 0;
+		break;
+	case LP_USE_BW:
+		iflp->use_bw = 0;
+		break;
+	}
 
 	/* force protocols to update LINK STATE due to parameters change */
 	if (if_is_operative(ifp))
@@ -2320,9 +2399,9 @@ DEFUN (link_params_enable,
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 
-	/* This command could be issue at startup, when activate MPLS TE */
-	/* on a new interface or after a ON / OFF / ON toggle */
-	/* In all case, TE parameters are reset to their default factory */
+	/* This command could be issued at startup, when activate MPLS TE
+	 * on a new interface or after a ON / OFF / ON toggle
+	 */
 	if (IS_ZEBRA_DEBUG_EVENT || IS_ZEBRA_DEBUG_MPLS)
 		zlog_debug(
 			"Link-params: enable TE link parameters on interface %s",
@@ -2417,21 +2496,29 @@ DEFUN (link_params_maxbw,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	/* Check that Maximum bandwidth is not lower than other bandwidth
-	 * parameters */
-	if ((bw <= iflp->max_rsv_bw) || (bw <= iflp->unrsv_bw[0])
-	    || (bw <= iflp->unrsv_bw[1]) || (bw <= iflp->unrsv_bw[2])
-	    || (bw <= iflp->unrsv_bw[3]) || (bw <= iflp->unrsv_bw[4])
-	    || (bw <= iflp->unrsv_bw[5]) || (bw <= iflp->unrsv_bw[6])
-	    || (bw <= iflp->unrsv_bw[7]) || (bw <= iflp->ava_bw)
-	    || (bw <= iflp->res_bw) || (bw <= iflp->use_bw)) {
+	/* Check that maximum bandwidth is not higher than the link bandwidth */
+	if (bw > iflp->default_bw) {
 		vty_out(vty,
-			"Maximum Bandwidth could not be lower than others bandwidth\n");
+			"ERROR: Maximum Bandwidth cannot be higher than the link's bandwidth (%g)\n",
+			iflp->default_bw);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
 	/* Update Maximum Bandwidth if needed */
 	link_param_cmd_set_float(ifp, &iflp->max_bw, LP_MAX_BW, bw);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN(no_link_params_maxbw, no_link_params_maxbw_cmd, "no max-bw [BANDWIDTH]",
+      NO_STR
+      "Maximum bandwidth that can be used\n"
+      "Bytes/second (IEEE floating point format)\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+
+	/* Unset Maximum Bandwidth */
+	link_param_cmd_unset(ifp, LP_MAX_BW);
 
 	return CMD_SUCCESS;
 }
@@ -2442,7 +2529,7 @@ DEFUN (link_params_max_rsv_bw,
        "Maximum bandwidth that may be reserved\n"
        "Bytes/second (IEEE floating point format)\n")
 {
-	int idx_bandwidth = 1;
+	int idx_bandwidth = 1, i;
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct if_link_params *iflp = if_link_params_get(ifp);
 	float bw;
@@ -2453,17 +2540,34 @@ DEFUN (link_params_max_rsv_bw,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	/* Check that bandwidth is not greater than maximum bandwidth parameter
+	/* is there any unreserved bw that would be higher than the new value?
 	 */
-	if (bw > iflp->max_bw) {
-		vty_out(vty,
-			"Maximum Reservable Bandwidth could not be greater than Maximum Bandwidth (%g)\n",
-			iflp->max_bw);
-		return CMD_WARNING_CONFIG_FAILED;
+	if (IS_PARAM_SET(iflp, LP_UNRSV_BW)) {
+		for (i = 0; i < MAX_CLASS_TYPE; i++)
+			if (iflp->unrsv_bw[i] > bw) {
+				vty_out(vty,
+					"ERROR: Maximum Reservable Bandwidth cannot be lower than a configured unreserved bandwidth (%g)\n",
+					iflp->unrsv_bw[i]);
+				return CMD_WARNING_CONFIG_FAILED;
+			}
 	}
 
 	/* Update Maximum Reservable Bandwidth if needed */
 	link_param_cmd_set_float(ifp, &iflp->max_rsv_bw, LP_MAX_RSV_BW, bw);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN(no_link_params_max_rsv_bw, no_link_params_max_rsv_bw_cmd,
+      "no max-rsv-bw [BANDWIDTH]",
+      NO_STR
+      "Maximum bandwidth that may be reserved\n"
+      "Bytes/second (IEEE floating point format)\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+
+	/* Unset Maximum Reservable Bandwidth */
+	link_param_cmd_unset(ifp, LP_MAX_RSV_BW);
 
 	return CMD_SUCCESS;
 }
@@ -2495,18 +2599,49 @@ DEFUN (link_params_unrsv_bw,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	/* Check that bandwidth is not greater than maximum bandwidth parameter
-	 */
-	if (bw > iflp->max_bw) {
+	if (bw == 0) {
 		vty_out(vty,
-			"UnReserved Bandwidth could not be greater than Maximum Bandwidth (%g)\n",
-			iflp->max_bw);
+			"ERROR: Bandwidth should be > 0; use no command to unset\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	/* Check that it is not greater than maximum reservable bandwidth
+	 */
+	if (IS_PARAM_SET(iflp, LP_MAX_RSV_BW) && bw > iflp->max_rsv_bw) {
+		vty_out(vty,
+			"ERROR: Unreserved Bandwidth cannot be greater than Maximum Reservable Bandwidth (%g)\n",
+			iflp->max_rsv_bw);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
 	/* Update Unreserved Bandwidth if needed */
 	link_param_cmd_set_float(ifp, &iflp->unrsv_bw[priority], LP_UNRSV_BW,
 				 bw);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN(no_link_params_unrsv_bw, no_link_params_unrsv_bw_cmd,
+      "no unrsv-bw [(0-7) [BANDWIDTH] ]",
+      NO_STR
+      "Unreserved bandwidth at each priority level\n"
+      "Priority\n"
+      "Bytes/second (IEEE floating point format)\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	int priority;
+
+	if (argc > 2) {
+		if (sscanf(argv[2]->arg, "%d", &priority) != 1) {
+			vty_out(vty, "no_link_params_unrsv_bw: fscanf: %s\n",
+				safe_strerror(errno));
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		link_param_unset_ursv_bw_class(ifp, priority);
+	} else {
+		/* no priority specified; set them ALL to 0 and unset flag */
+		link_param_cmd_unset(ifp, LP_UNRSV_BW);
+	}
 
 	return CMD_SUCCESS;
 }
@@ -3524,16 +3659,15 @@ static int link_params_config_write(struct vty *vty, struct interface *ifp)
 
 	vty_out(vty, " link-params\n");
 	vty_out(vty, "  enable\n");
-	if (IS_PARAM_SET(iflp, LP_TE_METRIC) && iflp->te_metric != ifp->metric)
+	if (IS_PARAM_SET(iflp, LP_TE_METRIC))
 		vty_out(vty, "  metric %u\n", iflp->te_metric);
-	if (IS_PARAM_SET(iflp, LP_MAX_BW) && iflp->max_bw != iflp->default_bw)
+	if (IS_PARAM_SET(iflp, LP_MAX_BW))
 		vty_out(vty, "  max-bw %g\n", iflp->max_bw);
-	if (IS_PARAM_SET(iflp, LP_MAX_RSV_BW)
-	    && iflp->max_rsv_bw != iflp->default_bw)
+	if (IS_PARAM_SET(iflp, LP_MAX_RSV_BW))
 		vty_out(vty, "  max-rsv-bw %g\n", iflp->max_rsv_bw);
 	if (IS_PARAM_SET(iflp, LP_UNRSV_BW)) {
 		for (i = 0; i < 8; i++)
-			if (iflp->unrsv_bw[i] != iflp->default_bw)
+			if (iflp->unrsv_bw[i] != 0)
 				vty_out(vty, "  unrsv-bw %d %g\n", i,
 					iflp->unrsv_bw[i]);
 	}
@@ -3706,8 +3840,11 @@ void zebra_if_init(void)
 	install_element(LINK_PARAMS_NODE, &link_params_metric_cmd);
 	install_element(LINK_PARAMS_NODE, &no_link_params_metric_cmd);
 	install_element(LINK_PARAMS_NODE, &link_params_maxbw_cmd);
+	install_element(LINK_PARAMS_NODE, &no_link_params_maxbw_cmd);
 	install_element(LINK_PARAMS_NODE, &link_params_max_rsv_bw_cmd);
+	install_element(LINK_PARAMS_NODE, &no_link_params_max_rsv_bw_cmd);
 	install_element(LINK_PARAMS_NODE, &link_params_unrsv_bw_cmd);
+	install_element(LINK_PARAMS_NODE, &no_link_params_unrsv_bw_cmd);
 	install_element(LINK_PARAMS_NODE, &link_params_admin_grp_cmd);
 	install_element(LINK_PARAMS_NODE, &no_link_params_admin_grp_cmd);
 	install_element(LINK_PARAMS_NODE, &link_params_inter_as_cmd);
