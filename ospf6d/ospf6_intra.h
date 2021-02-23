@@ -212,6 +212,26 @@ struct ospf6_intra_prefix_lsa {
 		thread_execute(master, ospf6_orig_as_external_lsa, oi, 0);     \
 	} while (0)
 
+extern int IXIA_4_2_ospf6_link_lsa_originate(struct thread *);
+extern int IXIA_4_2_ospf6_intra_prefix_lsa_originate_stub(struct thread *);
+extern int debug_send_unknown_lsa;
+
+#define IXIA_4_1_OSPF6_LINK_LSA_SCHEDULE(oi)                                            \
+	do {                                                                   \
+		if (!CHECK_FLAG((oi)->flag, OSPF6_INTERFACE_DISABLE))          \
+			thread_add_event(master, IXIA_4_2_ospf6_link_lsa_originate, oi, \
+					 0, &(oi)->thread_link_lsa);           \
+	} while (0)
+
+
+#define IXIA_4_2_OSPF6_INTRA_PREFIX_LSA_SCHEDULE_STUB(oa)                               \
+	do {                                                                   \
+		if (CHECK_FLAG((oa)->flag, OSPF6_AREA_ENABLE))                 \
+			thread_add_event(                                      \
+				master, IXIA_4_2_ospf6_intra_prefix_lsa_originate_stub, \
+				oa, 0, &(oa)->thread_intra_prefix_lsa);        \
+	} while (0)
+
 /* Function Prototypes */
 extern char *ospf6_router_lsdesc_lookup(uint8_t type, uint32_t interface_id,
 					uint32_t neighbor_interface_id,

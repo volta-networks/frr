@@ -499,6 +499,9 @@ static void ospf6_dbdesc_recv_master(struct ospf6_header *oh,
 			break;
 		}
 
+if (debug_send_unknown_lsa) {
+zlog_debug("INJECTBADLSA: %s: %d: HACK, IGNORING: SeqNumMismatch (E-bit mismatch), discard", __FUNCTION__, __LINE__);
+} else {
 		if (ntohs(his->header->type) == OSPF6_LSTYPE_AS_EXTERNAL
 		    && IS_AREA_STUB(on->ospf6_if->area)) {
 			if (IS_OSPF6_DEBUG_MESSAGE(oh->type, RECV))
@@ -509,6 +512,7 @@ static void ospf6_dbdesc_recv_master(struct ospf6_header *oh,
 					 NULL);
 			return;
 		}
+}
 
 		mine = ospf6_lsdb_lookup(his->header->type, his->header->id,
 					 his->header->adv_router, lsdb);
@@ -1709,7 +1713,11 @@ static void ospf6_send(struct in6_addr *src, struct in6_addr *dst,
 			break;
 		default:
 			zlog_debug("Unknown message");
+#if 0 // INJECTBADLSA
+if (!debug_send_unknown_lsa) {
 			assert(0);
+}
+#endif
 			break;
 		}
 	}

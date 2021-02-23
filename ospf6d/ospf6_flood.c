@@ -83,6 +83,7 @@ struct ospf6_lsdb *ospf6_get_scoped_lsdb_self(struct ospf6_lsa *lsa)
 	return lsdb_self;
 }
 
+extern int debug_send_unknown_lsa;
 void ospf6_lsa_originate(struct ospf6_lsa *lsa)
 {
 	struct ospf6_lsa *old;
@@ -95,10 +96,17 @@ void ospf6_lsa_originate(struct ospf6_lsa *lsa)
 	/* if the new LSA does not differ from previous,
 	   suppress this update of the LSA */
 	if (old && !OSPF6_LSA_IS_DIFFER(lsa, old)) {
+if (debug_send_unknown_lsa)
+{
+zlog_debug("INJECTBADLSA: %s: %d: debug_send_unknown_lsa=%d", __FUNCTION__, __LINE__, debug_send_unknown_lsa);
+}
+else
+{
 		if (IS_OSPF6_DEBUG_ORIGINATE_TYPE(lsa->header->type))
 			zlog_debug("Suppress updating LSA: %s", lsa->name);
 		ospf6_lsa_delete(lsa);
 		return;
+}
 	}
 
 	/* store it in the LSDB for self-originated LSAs */

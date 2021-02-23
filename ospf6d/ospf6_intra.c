@@ -2513,3 +2513,341 @@ void install_element_ospf6_debug_brouter(void)
 	install_element(CONFIG_NODE, &no_debug_ospf6_brouter_router_cmd);
 	install_element(CONFIG_NODE, &no_debug_ospf6_brouter_area_cmd);
 }
+
+int debug_send_unknown_lsa = 0;
+
+int IXIA_4_2_ospf6_link_lsa_originate(struct thread *thread)
+{
+zlog_debug("INJECTBADLSA: %s: %d: ", __FUNCTION__, __LINE__);
+
+	struct ospf6_interface *oi;
+
+	char buffer[OSPF6_MAX_LSASIZE];
+	struct ospf6_lsa_header *lsa_header;
+	struct ospf6_lsa *old, *lsa;
+
+	struct ospf6_link_lsa *link_lsa;
+	struct ospf6_route *route;
+	struct ospf6_prefix *op;
+
+	oi = (struct ospf6_interface *)THREAD_ARG(thread);
+	oi->thread_link_lsa = NULL;
+
+	assert(oi->area);
+
+	/* find previous LSA */
+	old = ospf6_lsdb_lookup(htons(OSPF6_LSTYPE_LINK),
+				htonl(oi->interface->ifindex),
+				oi->area->ospf6->router_id, oi->lsdb);
+
+	if (CHECK_FLAG(oi->flag, OSPF6_INTERFACE_DISABLE)) {
+		if (old)
+			ospf6_lsa_purge(old);
+		return 0;
+	}
+
+	if (IS_OSPF6_DEBUG_ORIGINATE(LINK))
+		zlog_debug("Originate Link-LSA for Interface %s",
+			   oi->interface->name);
+
+	/* can't make Link-LSA if linklocal address not set */
+	if (oi->linklocal_addr == NULL) {
+		if (IS_OSPF6_DEBUG_ORIGINATE(LINK))
+			zlog_debug(
+				"No Linklocal address on %s, defer originating",
+				oi->interface->name);
+		if (old)
+			ospf6_lsa_purge(old);
+		return 0;
+	}
+
+	/* prepare buffer */
+	memset(buffer, 0, sizeof(buffer));
+	lsa_header = (struct ospf6_lsa_header *)buffer;
+	link_lsa = (struct ospf6_link_lsa *)((caddr_t)lsa_header
+					     + sizeof(struct ospf6_lsa_header));
+	/* Fill Link-LSA */
+	link_lsa->priority = oi->priority;
+	memcpy(link_lsa->options, oi->area->options, 3);
+	memcpy(&link_lsa->linklocal_addr, oi->linklocal_addr,
+	       sizeof(struct in6_addr));
+	link_lsa->prefix_num = htonl(oi->route_connected->count);
+
+	op = (struct ospf6_prefix *)((caddr_t)link_lsa
+				     + sizeof(struct ospf6_link_lsa));
+
+	/* connected prefix to advertise */
+	for (route = ospf6_route_head(oi->route_connected); route;
+	     route = ospf6_route_next(route)) {
+		op->prefix_length = route->prefix.prefixlen;
+		op->prefix_options = route->path.prefix_options;
+		op->prefix_metric = htons(0);
+		memcpy(OSPF6_PREFIX_BODY(op), &route->prefix.u.prefix6,
+		       OSPF6_PREFIX_SPACE(op->prefix_length));
+		op = OSPF6_PREFIX_NEXT(op);
+	}
+
+	/* Fill LSA Header */
+	lsa_header->age = 0;
+	lsa_header->type = htons(OSPF6_LSTYPE_LINK);
+	lsa_header->id = htonl(oi->interface->ifindex);
+	lsa_header->adv_router = oi->area->ospf6->router_id;
+
+lsa_header->type = htons(OSPF6_LSTYPE_UNKNOWN);
+lsa_header->id = htonl(99);
+
+	lsa_header->seqnum =
+		ospf6_new_ls_seqnum(lsa_header->type, lsa_header->id,
+				    lsa_header->adv_router, oi->lsdb);
+	lsa_header->length = htons((caddr_t)op - (caddr_t)buffer);
+
+	/* LSA checksum */
+	ospf6_lsa_checksum(lsa_header);
+
+	lsa = ospf6_lsa_create(lsa_header);
+
+	/* Originate */
+debug_send_unknown_lsa = true;
+	ospf6_lsa_originate_interface(lsa, oi);
+
+	return 0;
+}
+
+int IXIA_4_2_ospf6_intra_prefix_lsa_originate_stub(struct thread *thread)
+{
+zlog_debug("INJECTBADLSA: %s: %d: getpid=%d", __FUNCTION__, __LINE__, getpid());
+	struct ospf6_area *oa;
+
+	char buffer[OSPF6_MAX_LSASIZE];
+	struct ospf6_lsa_header *lsa_header;
+	struct ospf6_lsa *old, *lsa, *old_next = NULL;
+
+	struct ospf6_intra_prefix_lsa *intra_prefix_lsa;
+	struct ospf6_interface *oi;
+	struct ospf6_neighbor *on;
+	struct ospf6_route *route;
+	struct ospf6_prefix *op;
+	struct listnode *i, *j;
+	int full_count = 0;
+	unsigned short prefix_num = 0;
+	struct ospf6_route_table *route_advertise;
+	int ls_id = 0;
+
+	oa = (struct ospf6_area *)THREAD_ARG(thread);
+	oa->thread_intra_prefix_lsa = NULL;
+
+	/* find previous LSA */
+	old = ospf6_lsdb_lookup(htons(OSPF6_LSTYPE_INTRA_PREFIX), htonl(0),
+				oa->ospf6->router_id, oa->lsdb);
+
+	if (!IS_AREA_ENABLED(oa)) {
+		if (old) {
+			ospf6_lsa_purge(old);
+			/* find previous LSA */
+			old_next = ospf6_lsdb_lookup(
+				htons(OSPF6_LSTYPE_INTRA_PREFIX),
+				htonl(++ls_id), oa->ospf6->router_id, oa->lsdb);
+
+			while (old_next) {
+				ospf6_lsa_purge(old_next);
+				old_next = ospf6_lsdb_lookup(
+					htons(OSPF6_LSTYPE_INTRA_PREFIX),
+					htonl(++ls_id), oa->ospf6->router_id,
+					oa->lsdb);
+			}
+		}
+		return 0;
+	}
+
+	if (IS_OSPF6_DEBUG_ORIGINATE(INTRA_PREFIX))
+		zlog_debug(
+			"Originate Intra-Area-Prefix-LSA for area %s's stub prefix",
+			oa->name);
+
+	/* prepare buffer */
+	memset(buffer, 0, sizeof(buffer));
+	lsa_header = (struct ospf6_lsa_header *)buffer;
+	intra_prefix_lsa = (struct ospf6_intra_prefix_lsa
+				    *)((caddr_t)lsa_header
+				       + sizeof(struct ospf6_lsa_header));
+
+	/* Fill Intra-Area-Prefix-LSA */
+	intra_prefix_lsa->ref_type = htons(OSPF6_LSTYPE_ROUTER);
+	intra_prefix_lsa->ref_id = htonl(0);
+	intra_prefix_lsa->ref_adv_router = oa->ospf6->router_id;
+
+	route_advertise = ospf6_route_table_create(0, 0);
+
+	for (ALL_LIST_ELEMENTS_RO(oa->if_list, i, oi)) {
+		if (oi->state == OSPF6_INTERFACE_DOWN) {
+			if (IS_OSPF6_DEBUG_ORIGINATE(INTRA_PREFIX))
+				zlog_debug("  Interface %s is down, ignore",
+					   oi->interface->name);
+			continue;
+		}
+
+		full_count = 0;
+
+		for (ALL_LIST_ELEMENTS_RO(oi->neighbor_list, j, on))
+			if (on->state == OSPF6_NEIGHBOR_FULL)
+				full_count++;
+
+		if (oi->state != OSPF6_INTERFACE_LOOPBACK
+		    && oi->state != OSPF6_INTERFACE_POINTTOPOINT
+		    && full_count != 0) {
+			if (IS_OSPF6_DEBUG_ORIGINATE(INTRA_PREFIX))
+				zlog_debug("  Interface %s is not stub, ignore",
+					   oi->interface->name);
+			continue;
+		}
+
+		if (IS_OSPF6_DEBUG_ORIGINATE(INTRA_PREFIX))
+			zlog_debug("  Interface %s:", oi->interface->name);
+
+		/* connected prefix to advertise */
+		for (route = ospf6_route_head(oi->route_connected); route;
+		     route = ospf6_route_best_next(route)) {
+			if (IS_OSPF6_DEBUG_ORIGINATE(INTRA_PREFIX))
+				zlog_debug("    include %pFX", &route->prefix);
+			ospf6_route_add(ospf6_route_copy(route),
+					route_advertise);
+		}
+	}
+
+
+	if (route_advertise->count == 0) {
+		if (old) {
+			ls_id = 0;
+			ospf6_lsa_purge(old);
+			/* find previous LSA */
+			old_next = ospf6_lsdb_lookup(
+				htons(OSPF6_LSTYPE_INTRA_PREFIX),
+				htonl(++ls_id), oa->ospf6->router_id, oa->lsdb);
+
+			while (old_next) {
+				ospf6_lsa_purge(old_next);
+				old_next = ospf6_lsdb_lookup(
+					htons(OSPF6_LSTYPE_INTRA_PREFIX),
+					htonl(++ls_id), oa->ospf6->router_id,
+					oa->lsdb);
+			}
+		}
+		ospf6_route_table_delete(route_advertise);
+		return 0;
+	}
+
+	/* Neighbor change to FULL, if INTRA-AREA-PREFIX LSA
+	 * has not change, Flush old LSA and Re-Originate INP,
+	 * as ospf6_flood() checks if LSA is same as DB,
+	 * it won't be updated to neighbor's DB.
+	 */
+	if (oa->intra_prefix_originate) {
+		if (IS_OSPF6_DEBUG_ORIGINATE(INTRA_PREFIX))
+			zlog_debug(
+				"%s: Re-originate intra prefix LSA, Current full nbrs %u",
+				__func__, oa->full_nbrs);
+		if (old)
+			ospf6_lsa_purge_multi_ls_id(oa, old);
+		oa->intra_prefix_originate = 0;
+	}
+
+	/* put prefixes to advertise */
+	prefix_num = 0;
+	op = (struct ospf6_prefix *)((caddr_t)intra_prefix_lsa
+				     + sizeof(struct ospf6_intra_prefix_lsa));
+	for (route = ospf6_route_head(route_advertise); route;
+	     route = ospf6_route_best_next(route)) {
+		if (((caddr_t)op - (caddr_t)lsa_header) > MAX_LSA_PAYLOAD) {
+
+			intra_prefix_lsa->prefix_num = htons(prefix_num);
+
+			/* Fill LSA Header */
+			lsa_header->age = 0;
+			lsa_header->type = htons(OSPF6_LSTYPE_INTRA_PREFIX);
+			lsa_header->id = htonl(ls_id++);
+			lsa_header->adv_router = oa->ospf6->router_id;
+			lsa_header->seqnum = ospf6_new_ls_seqnum(
+				lsa_header->type, lsa_header->id,
+				lsa_header->adv_router, oa->lsdb);
+			lsa_header->length =
+				htons((caddr_t)op - (caddr_t)lsa_header);
+
+			/* LSA checksum */
+			ospf6_lsa_checksum(lsa_header);
+
+			/* Create LSA */
+			lsa = ospf6_lsa_create(lsa_header);
+
+			/* Originate */
+			ospf6_lsa_originate_area(lsa, oa);
+
+			/* Prepare next buffer */
+			memset(buffer, 0, sizeof(buffer));
+			lsa_header = (struct ospf6_lsa_header *)buffer;
+			intra_prefix_lsa =
+				(struct ospf6_intra_prefix_lsa
+					 *)((caddr_t)lsa_header
+					    + sizeof(struct ospf6_lsa_header));
+
+			/* Fill Intra-Area-Prefix-LSA */
+			intra_prefix_lsa->ref_type = htons(OSPF6_LSTYPE_ROUTER);
+			intra_prefix_lsa->ref_id = htonl(0);
+			intra_prefix_lsa->ref_adv_router = oa->ospf6->router_id;
+
+			/* Put next set of prefixes to advertise */
+			prefix_num = 0;
+			op = (struct ospf6_prefix
+				      *)((caddr_t)intra_prefix_lsa
+					 + sizeof(struct
+						  ospf6_intra_prefix_lsa));
+		}
+
+		op->prefix_length = route->prefix.prefixlen;
+		op->prefix_options = route->path.prefix_options;
+		op->prefix_metric = htons(route->path.cost);
+		memcpy(OSPF6_PREFIX_BODY(op), &route->prefix.u.prefix6,
+		       OSPF6_PREFIX_SPACE(op->prefix_length));
+		prefix_num++;
+
+		op = OSPF6_PREFIX_NEXT(op);
+	}
+
+	ospf6_route_table_delete(route_advertise);
+
+	if (prefix_num == 0) {
+		if (IS_OSPF6_DEBUG_ORIGINATE(INTRA_PREFIX))
+			zlog_debug(
+				"Quit to Advertise Intra-Prefix: no route to advertise");
+		return 0;
+	}
+
+	intra_prefix_lsa->prefix_num = htons(prefix_num);
+
+	/* Fill LSA Header */
+	lsa_header->age = 0;
+	lsa_header->type = htons(OSPF6_LSTYPE_INTRA_PREFIX);
+	lsa_header->id = htonl(ls_id++);
+	lsa_header->adv_router = oa->ospf6->router_id;
+
+lsa_header->type = htons(OSPF6_SCOPE_AREA | OSPF6_LSTYPE_UNKNOWN);
+lsa_header->id = htonl(98);
+
+	lsa_header->seqnum =
+		ospf6_new_ls_seqnum(lsa_header->type, lsa_header->id,
+				    lsa_header->adv_router, oa->lsdb);
+	lsa_header->length = htons((caddr_t)op - (caddr_t)lsa_header);
+
+	/* LSA checksum */
+	ospf6_lsa_checksum(lsa_header);
+
+	/* create LSA */
+	lsa = ospf6_lsa_create(lsa_header);
+
+debug_send_unknown_lsa = true;
+	/* Originate */
+	ospf6_lsa_originate_area(lsa, oa);
+
+	return 0;
+}
+
+
