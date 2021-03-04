@@ -97,7 +97,12 @@ enum srte_segment_nai_type {
 	SRTE_SEGMENT_NAI_TYPE_IPV6_NODE = 2,
 	SRTE_SEGMENT_NAI_TYPE_IPV4_ADJACENCY = 3,
 	SRTE_SEGMENT_NAI_TYPE_IPV6_ADJACENCY = 4,
-	SRTE_SEGMENT_NAI_TYPE_IPV4_UNNUMBERED_ADJACENCY = 5
+	SRTE_SEGMENT_NAI_TYPE_IPV4_UNNUMBERED_ADJACENCY = 5,
+	SRTE_SEGMENT_NAI_TYPE_IPV6_ADJACENCY_LINK_LOCAL_ADDRESSES = 6,
+	SRTE_SEGMENT_NAI_TYPE_IPV4_LOCAL_IFACE = 7,
+	SRTE_SEGMENT_NAI_TYPE_IPV6_LOCAL_IFACE = 8,
+	SRTE_SEGMENT_NAI_TYPE_IPV4_ALGORITHM = 9,
+	SRTE_SEGMENT_NAI_TYPE_IPV6_ALGORITHM = 10
 };
 
 enum objfun_type {
@@ -172,6 +177,10 @@ struct srte_segment_entry {
 	/* NAI remote interface when nai type is not IPv4 unnumbered adjacency
 	 */
 	uint32_t nai_remote_iface;
+	/* Support draft-ietf-spring-segment-routing-policy segment list types
+	 * queries*/
+	uint8_t nai_local_prefix_len;
+	uint8_t nai_algorithm;
 };
 RB_HEAD(srte_segment_entry_head, srte_segment_entry);
 RB_PROTOTYPE(srte_segment_entry_head, srte_segment_entry, entry,
@@ -361,11 +370,12 @@ void srte_segment_entry_del(struct srte_segment_entry *segment);
 void srte_segment_entry_set_nai(struct srte_segment_entry *segment,
 				enum srte_segment_nai_type type,
 				struct ipaddr *local_ip, uint32_t local_iface,
-				struct ipaddr *remote_ip,
-				uint32_t remote_iface);
+				struct ipaddr *remote_ip, uint32_t remote_iface,
+				uint8_t algo, uint8_t pref_len);
 struct srte_policy *srte_policy_add(uint32_t color, struct ipaddr *endpoint);
 void srte_policy_del(struct srte_policy *policy);
 struct srte_policy *srte_policy_find(uint32_t color, struct ipaddr *endpoint);
+int srte_policy_update_ted_sid(struct vty *vty);
 void srte_policy_update_binding_sid(struct srte_policy *policy,
 				    uint32_t binding_sid);
 void srte_apply_changes(void);
@@ -405,6 +415,7 @@ srte_segment_entry_find(struct srte_segment_list *segment_list, uint32_t index);
 void srte_candidate_status_update(struct srte_candidate *candidate, int status);
 void srte_candidate_unset_segment_list(const char *originator, bool force);
 const char *srte_origin2str(enum srte_protocol_origin origin);
+void pathd_shutdown(void);
 
 /* path_cli.c */
 void path_cli_init(void);

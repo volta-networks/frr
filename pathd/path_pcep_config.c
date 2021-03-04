@@ -255,6 +255,10 @@ path_pcep_config_list_path_hops(struct srte_segment_list *segment_list)
 		switch (segment->nai_type) {
 		case SRTE_SEGMENT_NAI_TYPE_IPV4_NODE:
 		case SRTE_SEGMENT_NAI_TYPE_IPV6_NODE:
+		case SRTE_SEGMENT_NAI_TYPE_IPV4_LOCAL_IFACE:
+		case SRTE_SEGMENT_NAI_TYPE_IPV6_LOCAL_IFACE:
+		case SRTE_SEGMENT_NAI_TYPE_IPV4_ALGORITHM:
+		case SRTE_SEGMENT_NAI_TYPE_IPV6_ALGORITHM:
 			memcpy(&hop->nai.local_addr, &segment->nai_local_addr,
 			       sizeof(struct ipaddr));
 			break;
@@ -338,7 +342,7 @@ int path_pcep_config_update_path(struct path *path)
 					&hop->nai.local_addr,
 					hop->nai.local_iface,
 					&hop->nai.remote_addr,
-					hop->nai.remote_iface);
+					hop->nai.remote_iface, 0, 0);
 		}
 	}
 
@@ -409,6 +413,16 @@ enum pcep_sr_subobj_nai pcep_nai_type(enum srte_segment_nai_type type)
 		return PCEP_SR_SUBOBJ_NAI_IPV6_ADJACENCY;
 	case SRTE_SEGMENT_NAI_TYPE_IPV4_UNNUMBERED_ADJACENCY:
 		return PCEP_SR_SUBOBJ_NAI_UNNUMBERED_IPV4_ADJACENCY;
+	case SRTE_SEGMENT_NAI_TYPE_IPV6_ADJACENCY_LINK_LOCAL_ADDRESSES:
+		return PCEP_SR_SUBOBJ_NAI_LINK_LOCAL_IPV6_ADJACENCY;
+	case SRTE_SEGMENT_NAI_TYPE_IPV4_LOCAL_IFACE:
+		return PCEP_SR_SUBOBJ_NAI_IPV4_LOCAL_IFACE;
+	case SRTE_SEGMENT_NAI_TYPE_IPV6_LOCAL_IFACE:
+		return PCEP_SR_SUBOBJ_NAI_IPV6_LOCAL_IFACE;
+	case SRTE_SEGMENT_NAI_TYPE_IPV4_ALGORITHM:
+		return PCEP_SR_SUBOBJ_NAI_IPV4_ALGORITHM;
+	case SRTE_SEGMENT_NAI_TYPE_IPV6_ALGORITHM:
+		return PCEP_SR_SUBOBJ_NAI_IPV6_ALGORITHM;
 	default:
 		return PCEP_SR_SUBOBJ_NAI_UNKNOWN;
 	}

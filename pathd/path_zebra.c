@@ -30,9 +30,14 @@
 #include "typesafe.h"
 
 #include "pathd/pathd.h"
+#include "pathd/path_ted.h"
 #include "pathd/path_zebra.h"
+#include "lib/command.h"
+#include "lib/link_state.h"
 
-static struct zclient *zclient;
+static int path_zebra_opaque_msg_handler(ZAPI_CALLBACK_ARGS);
+
+struct zclient *zclient;
 static struct zclient *zclient_sync;
 
 /* Global Variables */
@@ -79,6 +84,13 @@ bool get_ipv6_router_id(struct in6_addr *router_id)
 	}
 	pthread_mutex_unlock(&g_router_id_v6_mtx);
 	return retval;
+}
+
+void path_zebra_destroy(void)
+{
+	zclient_stop(zclient);
+	zclient_free(zclient);
+	zclient = NULL;
 }
 
 static void path_zebra_connected(struct zclient *zclient)
@@ -181,7 +193,7 @@ void path_zebra_add_sr_policy(struct srte_policy *policy,
 	zp.segment_list.label_num = 0;
 	RB_FOREACH (segment, srte_segment_entry_head, &segment_list->segments)
 		zp.segment_list.labels[zp.segment_list.label_num++] =
-			segment->sid_value;
+		segment->sid_value;
 	policy->status = SRTE_POLICY_STATUS_GOING_UP;
 
 	(void)zebra_send_sr_policy(zclient, ZEBRA_SR_POLICY_SET, &zp);
@@ -265,6 +277,76 @@ static void path_zebra_label_manager_connect(void)
 	}
 }
 
+static int path_zebra_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
+{
+	int ret = 0;
+	struct stream *s;
+	struct zapi_opaque_msg info;
+	static uint64_t node_key;
+	char buf[INET6_ADDRSTRLEN];
+
+	s = zclient->ibuf;
+
+	if (zclient_opaque_decode(s, &info) != 0)
+		return -1;
+
+	switch (info.type) {
+	case LINK_STATE_UPDATE:
+		zlog_debug("%s: [rcv ted] ls update !", __func__);
+	case LINK_STATE_SYNC:
+		//Start receiving ls data so cancel request sync timer
+		path_ted_teardown();
+		zlog_debug("%s: [rcv ted] ls request !", __func__);
+		struct ls_message *msg = ls_parse_msg(s);
+		if (msg) {
+			zlog_debug(
+				   "%s: [rcv ted] ls update msg (%s) !", __func__,
+				   msg->type == 1 ? "LS_NODE"
+				   : msg->type == 2 ? "LS_ATT"
+				   : "LS_PREFIX");
+		} else {
+			zlog_err(
+				 "%s: [rcv ted] Could not parse LinkState stream message.",
+				 __func__);
+			return -1;
+		}
+		if (msg->type == LS_MSG_TYPE_NODE) {
+			// New node, save id for next attributes be linked
+			// edge->destination->node->adv == msg->destination
+			memcpy(&node_key, &msg->data.node->adv.id.ip.addr,
+			       IPV4_MAX_BYTELEN);
+			frr_inet_ntop(AF_INET, &node_key, buf, sizeof(buf));
+			zlog_debug("%s: [rcv ted] Node id (%s) !", __func__,
+				   buf);
+		}
+
+		ret = path_ted_rcvd_message(msg, node_key);
+		ls_delete_msg(msg);
+		/*
+		   zlog_debug("%s: [rcv ted] query by ip !", __func__);
+		   struct ipaddr cp_hop={0};
+		   SET_IPADDR_V4(&cp_hop);
+		   str2ipaddr("10.10.10.1", &cp_hop);
+		   if(path_ted_query_router_by_ipv4(cp_hop.ip._v4_addr)){
+		   zlog_debug("%s: [rcv ted] SUCCESS found !", __func__);
+		   }else{
+		   zlog_debug("%s: [rcv ted] NOT found !", __func__);
+		   }
+		   */
+		break;
+	default:
+		zlog_debug("%s: [rcv ted] unknown opaque event (%d) !",
+			   __func__, info.type);
+		break;
+	}
+
+	return ret;
+
+stream_failure:
+	zlog_err("%s: Could not parse stream message.", __func__);
+	return -1;
+}
+
 /**
  * Initializes Zebra asynchronous connection.
  *
@@ -281,6 +363,7 @@ void path_zebra_init(struct thread_master *master)
 	zclient->zebra_connected = path_zebra_connected;
 	zclient->sr_policy_notify_status = path_zebra_sr_policy_notify_status;
 	zclient->router_id_update = path_zebra_router_id_update;
+	zclient->opaque_msg_handler = path_zebra_opaque_msg_handler;
 
 	/* Initialize special zclient for synchronous message exchanges. */
 	zclient_sync = zclient_new(master, &options);

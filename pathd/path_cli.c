@@ -143,6 +143,25 @@ DEFPY(show_srte_policy,
 }
 
 /*
+ * Fake . show segment-list , update with TED, and update policies in zebra
+ */
+//#include "path_ted.h"
+//#include "memory.h"
+//#include "path_pcep_memory.h"
+// DECLARE_MTYPE(PATH_SEGMENT_LIST_AUX)
+// DEFINE_MTYPE_STATIC(PATHD, PATH_SEGMENT_LIST_AUX, "Segment List Aux")
+DEFPY(show_segment_and_policies, show_segment_and_policies_cmd,
+      "show sr-te entries",
+      SHOW_STR
+      "SR-TE entries\n"
+      "Show , update info and zebra TEST purposes\n")
+{
+	srte_policy_update_ted_sid(vty);
+	return CMD_SUCCESS;
+}
+
+
+/*
  * Show detailed SR-TE info
  */
 DEFPY(show_srte_policy_detail,
@@ -293,6 +312,212 @@ void cli_show_srte_segment_list(struct vty *vty, struct lyd_node *dnode,
 		yang_dnode_get_string(dnode, "./name"));
 }
 
+#include "path_ted.h"
+DEFPY(te_path_segment_list_segment, te_path_segment_list_segment_cmd,
+      "index (0-4294967295)$index <[mpls$has_mpls_label label (16-1048575)$label] "
+      "|"
+      "[nai$has_nai <"
+      "prefix <A.B.C.D/M$prefix_ipv4|X:X::X:X/M$prefix_ipv6>"
+      "[algorithm$has_algo (0-1)$algo| iface$has_iface_id (0-4294967295)$iface_id]"
+      "| adjacency$has_adj "
+      "<A.B.C.D$adj_src_ipv4 A.B.C.D$adj_dst_ipv4|X:X::X:X$adj_src_ipv6 X:X::X:X$adj_dst_ipv6>"
+      ">]"
+      ">",
+      "Index\n"
+      "Index Value\n"
+      "MPLS or IP Label\n"
+      "Label\n"
+      "Label Value\n"
+      "Segment NAI\n"
+      "NAI prefix identifier\n"
+      "NAI IPv4 prefix identifier\n"
+      "NAI IPv6 prefix identifier\n"
+      "IGP Algorithm\n"
+      "Algorithm Value SPF or Strict-SPF\n"
+      "Interface Id\n"
+      "Interface Value\n"
+      "ADJ identifier\n"
+      "ADJ IPv4 src identifier\n"
+      "ADJ IPv4 dst identifier\n"
+      "ADJ IPv6 src identifier\n"
+      "ADJ IPv6 dst identifier\n")
+{
+	char xpath[XPATH_MAXLEN];
+	const char *node_src_id;
+	const char *node_dst_id;
+	char buf_prefix[INET6_ADDRSTRLEN];
+
+	// INI : test
+	// TYPE-E
+	char buf[INET6_ADDRSTRLEN];
+	uint32_t ted_sid = MPLS_LABEL_NONE;
+	uint32_t iface_id_num = 1;
+	struct prefix prefix_cli = {0};
+	struct prefix prefix = {0};
+	memset(&prefix, 0, sizeof(prefix));
+	prefix.family = AF_INET;
+	prefix.prefixlen = 4;
+	prefix.u.prefix4.s_addr = 184680714	// 10.1.2.11
+				  & 0x00ffffff; // test purposes
+	inet_ntop(AF_INET, &prefix.u.prefix4, buf, sizeof(buf));
+	if (MPLS_LABEL_NONE
+	    != (ted_sid = path_ted_query_type_e(&prefix, iface_id_num))) {
+		zlog_debug(
+			"%s/(%lu): [rcv ted] CLI SUCCESS found PREFIX (%s) IFACE (%d) sid:(%d)!",
+			__func__, pthread_self(), buf, iface_id_num, ted_sid);
+	} else {
+		zlog_debug(
+			"%s/(%lu): [rcv ted] CLI NOT found PREFIX (%s) IFACE (%d)!",
+			__func__, pthread_self(), buf, iface_id_num);
+	}
+	// END : test
+
+	snprintf(xpath, sizeof(xpath), "./segment[index='%s']", index_str);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+
+	if (has_mpls_label != NULL) {
+		snprintf(xpath, sizeof(xpath),
+			 "./segment[index='%s']/sid-value", index_str);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, label_str);
+	}
+
+	if (has_nai != NULL) {
+		if (has_adj == NULL) {
+			// Type
+			snprintf(xpath, sizeof(xpath),
+				 "./segment[index='%s']/nai/type", index_str);
+			if (has_iface_id != NULL) {
+				if (prefix_ipv4_str != NULL) {
+					nb_cli_enqueue_change(
+						vty, xpath, NB_OP_MODIFY,
+						"ipv4_local_iface");
+				} else if (prefix_ipv6_str != NULL) {
+					nb_cli_enqueue_change(
+						vty, xpath, NB_OP_MODIFY,
+						"ipv6_local_iface");
+				} else {
+					return CMD_ERR_NO_MATCH;
+				}
+			} else {
+				if (prefix_ipv4_str != NULL) {
+					nb_cli_enqueue_change(vty, xpath,
+							      NB_OP_MODIFY,
+							      "ipv4_algo");
+				} else if (prefix_ipv6_str != NULL) {
+					nb_cli_enqueue_change(vty, xpath,
+							      NB_OP_MODIFY,
+							      "ipv6_algo");
+				} else {
+					return CMD_ERR_NO_MATCH;
+				}
+			}
+			// Prefix
+			if (prefix_ipv4_str != NULL) {
+				if (!str2prefix(prefix_ipv4_str, &prefix_cli)) {
+					vty_out(vty, "%% Malformed prefix\n");
+					return CMD_WARNING_CONFIG_FAILED;
+				}
+				frr_inet_ntop(AF_INET, &prefix_cli.u.prefix4,
+					      buf_prefix, sizeof(buf_prefix));
+			} else {
+				if (!str2prefix(prefix_ipv6_str, &prefix_cli)) {
+					vty_out(vty, "%% Malformed prefix\n");
+					return CMD_WARNING_CONFIG_FAILED;
+				}
+				frr_inet_ntop(AF_INET6, &prefix_cli.u.prefix6,
+					      buf_prefix, sizeof(buf_prefix));
+			}
+			snprintf(xpath, sizeof(xpath),
+				 "./segment[index='%s']/nai/local-address",
+				 index_str);
+			nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY,
+					      buf_prefix);
+			snprintf(xpath, sizeof(xpath),
+				 "./segment[index='%s']/nai/local-prefix-len",
+				 index_str);
+			nb_cli_enqueue_change(
+				vty, xpath, NB_OP_MODIFY,
+				prefix_ipv4_str
+					? strchr(prefix_ipv4_str, '/') + 1
+					: strchr(prefix_ipv6_str, '/') + 1);
+			// Alg / Iface
+			if (has_algo != NULL) {
+				snprintf(xpath, sizeof(xpath),
+					 "./segment[index='%s']/nai/algorithm",
+					 index_str);
+				nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY,
+						      algo_str);
+			} else {
+				if (has_iface_id != NULL) {
+					snprintf(
+						xpath, sizeof(xpath),
+						"./segment[index='%s']/nai/local-interface",
+						index_str);
+					nb_cli_enqueue_change(vty, xpath,
+							      NB_OP_MODIFY,
+							      iface_id_str);
+				}
+			}
+			if (has_iface_id != NULL) {
+				if (MPLS_LABEL_NONE
+				    == (ted_sid = path_ted_query_type_e(
+						&prefix_cli, iface_id))) {
+					return CMD_WARNING;
+				}
+			}
+			if (has_algo != NULL) {
+				if (MPLS_LABEL_NONE
+				    == (ted_sid = path_ted_query_type_c(
+						&prefix_cli, algo))) {
+					return CMD_WARNING;
+				}
+			}
+			// update src and dst ip's
+		} else {
+			struct ipaddr ip_src = {.ipa_type = IPADDR_V4,
+						.ip._v4_addr = adj_src_ipv4};
+			struct ipaddr ip_dst = {.ipa_type = IPADDR_V4,
+						.ip._v4_addr = adj_dst_ipv4};
+			if (MPLS_LABEL_NONE
+			    == (ted_sid = path_ted_query_type_f(&ip_src,
+								&ip_dst))) {
+				return CMD_WARNING;
+			}
+			snprintf(xpath, sizeof(xpath),
+				 "./segment[index='%s']/nai/type", index_str);
+			if (adj_src_ipv4_str != NULL) {
+				nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY,
+						      "ipv4_adjacency");
+				node_src_id = adj_src_ipv4_str;
+			} else if (adj_src_ipv6_str != NULL) {
+				nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY,
+						      "ipv6_adjacency");
+				node_src_id = adj_src_ipv6_str;
+			} else {
+				return CMD_ERR_NO_MATCH;
+			}
+			snprintf(xpath, sizeof(xpath),
+				 "./segment[index='%s']/nai/local-address",
+				 index_str);
+			nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY,
+					      node_src_id);
+			snprintf(xpath, sizeof(xpath),
+				 "./segment[index='%s']/nai/remote-address",
+				 index_str);
+			nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY,
+					      adj_dst_ipv4_str
+						      ? adj_dst_ipv4_str
+						      : adj_dst_ipv6_str);
+		}
+	} else {
+		snprintf(xpath, sizeof(xpath), "./segment[index='%s']/nai",
+			 index_str);
+		nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	}
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 /*
  * XPath: /frr-pathd:pathd/srte/segment-list/segment
  */
@@ -367,22 +592,58 @@ void cli_show_srte_segment_list_segment(struct vty *vty,
 					struct lyd_node *dnode,
 					bool show_defaults)
 {
-	vty_out(vty, "   index %s mpls label %s",
-		yang_dnode_get_string(dnode, "./index"),
-		yang_dnode_get_string(dnode, "./sid-value"));
+	vty_out(vty, " index %s ", yang_dnode_get_string(dnode, "./index"));
+	if (yang_dnode_exists(dnode, "./sid-value")) {
+		vty_out(vty, " mpls label %s",
+			yang_dnode_get_string(dnode, "./sid-value"));
+	}
 	if (yang_dnode_exists(dnode, "./nai")) {
 		struct ipaddr addr;
+		struct ipaddr addr_rmt;
 		switch (yang_dnode_get_enum(dnode, "./nai/type")) {
 		case SRTE_SEGMENT_NAI_TYPE_IPV4_NODE:
+		case SRTE_SEGMENT_NAI_TYPE_IPV4_LOCAL_IFACE:
+		case SRTE_SEGMENT_NAI_TYPE_IPV4_ALGORITHM:
 			yang_dnode_get_ip(&addr, dnode, "./nai/local-address");
-			vty_out(vty, " nai node %pI4", &addr.ipaddr_v4);
+			vty_out(vty, " nai prefix %pI4", &addr.ipaddr_v4);
 			break;
 		case SRTE_SEGMENT_NAI_TYPE_IPV6_NODE:
+		case SRTE_SEGMENT_NAI_TYPE_IPV6_LOCAL_IFACE:
+		case SRTE_SEGMENT_NAI_TYPE_IPV6_ALGORITHM:
 			yang_dnode_get_ip(&addr, dnode, "./nai/local-address");
-			vty_out(vty, " nai node %pI6", &addr.ipaddr_v6);
+			vty_out(vty, " nai prefix %pI6", &addr.ipaddr_v6);
+			break;
+		case SRTE_SEGMENT_NAI_TYPE_IPV4_ADJACENCY:
+			yang_dnode_get_ip(&addr, dnode, "./nai/local-address");
+			yang_dnode_get_ip(&addr_rmt, dnode,
+					  "./nai/remote-address");
+			vty_out(vty, " nai adjacency %pI4", &addr.ipaddr_v4);
+			vty_out(vty, " %pI4", &addr_rmt.ipaddr_v4);
+			break;
+		case SRTE_SEGMENT_NAI_TYPE_IPV6_ADJACENCY:
+			yang_dnode_get_ip(&addr, dnode, "./nai/local-address");
+			yang_dnode_get_ip(&addr_rmt, dnode,
+					  "./nai/remote-address");
+			vty_out(vty, " nai adjacency %pI6", &addr.ipaddr_v4);
+			vty_out(vty, " %pI6", &addr_rmt.ipaddr_v4);
 			break;
 		default:
 			break;
+		}
+		if (yang_dnode_exists(dnode, "./nai/local-prefix-len")) {
+			vty_out(vty, "/%s",
+				yang_dnode_get_string(
+					dnode, "./nai/local-prefix-len"));
+		}
+		if (yang_dnode_exists(dnode, "./nai/local-interface")) {
+			vty_out(vty, " iface %s",
+				yang_dnode_get_string(dnode,
+						      "./nai/local-interface"));
+		}
+		if (yang_dnode_exists(dnode, "./nai/algorithm")) {
+			vty_out(vty, " algorithm %s",
+				yang_dnode_get_string(dnode,
+						      "./nai/algorithm"));
 		}
 	}
 	vty_out(vty, "\n");
@@ -1071,6 +1332,7 @@ void path_cli_init(void)
 	install_element(ENABLE_NODE, &show_debugging_pathd_cmd);
 	install_element(ENABLE_NODE, &show_srte_policy_cmd);
 	install_element(ENABLE_NODE, &show_srte_policy_detail_cmd);
+	install_element(ENABLE_NODE, &show_segment_and_policies_cmd);
 
 	install_element(CONFIG_NODE, &segment_routing_cmd);
 	install_element(SEGMENT_ROUTING_NODE, &sr_traffic_eng_cmd);

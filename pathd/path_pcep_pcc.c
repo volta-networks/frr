@@ -1487,15 +1487,98 @@ void specialize_incoming_path(struct pcc_state *pcc_state, struct path *path)
 	path->originator = XSTRDUP(MTYPE_PCEP, pcc_state->originator);
 }
 
+#include "pathd/path_ted.h"
 /* Ensure the path can be handled by the PCC and if not, sends an error */
 bool validate_incoming_path(struct pcc_state *pcc_state, struct path *path,
 			    char *errbuff, size_t buffsize)
 {
+	char buf[INET6_ADDRSTRLEN];
+	char buf_rmt[INET6_ADDRSTRLEN];
 	struct path_hop *hop;
 	enum pcep_error_type err_type = 0;
 	enum pcep_error_value err_value = PCEP_ERRV_UNASSIGNED;
 
 	for (hop = path->first_hop; hop != NULL; hop = hop->next) {
+		// INI : query ted
+		// struct ipaddr cp_hop={0};
+		// SET_IPADDR_V4(&cp_hop);
+		// str2ipaddr("10.10.10.1", &cp_hop);
+		// if(path_ted_query_router_by_ipv4(cp_hop.ip._v4_addr)){
+		// inet_ntop(AF_INET, &hop->nai.remote_addr.ipaddr_v4, buf,
+		//	     sizeof(buf));
+		zlog_debug(
+			"%s: [rcv ted] pce response : is_loose (%d) has_sid (%d) mpls label (%d) is_mpls (%d) has_attri (%d) has_nai (%d) nai_type (%d) local (%s) local_iface (%d) remote (%s) remote_iface (%d) !",
+			__func__, hop->is_loose, hop->has_sid,
+			hop->sid.mpls.label, hop->is_mpls, hop->has_attribs,
+			hop->has_nai, hop->nai.type,
+			inet_ntop(AF_INET, &hop->nai.local_addr.ipaddr_v4, buf,
+				  sizeof(buf)),
+			hop->nai.local_iface,
+			inet_ntop(AF_INET, &hop->nai.remote_addr.ipaddr_v4,
+				  buf_rmt, sizeof(buf_rmt)),
+			hop->nai.remote_iface);
+		// Testing path_ted API
+		if (path_ted_query_router_by_ipv4(
+			    hop->nai.remote_addr.ipaddr_v4)) {
+			zlog_debug("%s: [rcv ted] SUCCESS found (%s)!",
+				   __func__, buf_rmt);
+		} else {
+			zlog_debug("%s: [rcv ted] NOT found (%s)!", __func__,
+				   buf_rmt);
+		}
+		// TYPE-F
+		uint32_t ted_sid = MPLS_LABEL_NONE;
+		if (MPLS_LABEL_NONE
+		    != (ted_sid = path_ted_query_type_f(
+				&hop->nai.local_addr, &hop->nai.remote_addr))) {
+			zlog_debug(
+				"%s: [rcv ted] SUCCESS found ADJ (%s)-(%s) sid:(%d)!",
+				__func__, buf, buf_rmt, ted_sid);
+		} else {
+			zlog_debug("%s: [rcv ted] NOT found ADJ (%s)-(%s)!",
+				   __func__, buf, buf_rmt);
+		}
+		// TYPE-C
+		ted_sid = MPLS_LABEL_NONE;
+		uint8_t algo = 0;
+		struct prefix prefix = {0};
+		prefix.family = AF_INET;
+		prefix.prefixlen = 4;
+		prefix.u.prefix4.s_addr = hop->nai.local_addr.ip._v4_addr.s_addr
+					  & 0x00ffffff; // test purposes
+		inet_ntop(AF_INET, &prefix.u.prefix4, buf, sizeof(buf));
+		if (MPLS_LABEL_NONE
+		    != (ted_sid = path_ted_query_type_c(&prefix, algo))) {
+			zlog_debug(
+				"%s: [rcv ted] SUCCESS found PREFIX (%s) ALG (%d) sid:(%d)!",
+				__func__, buf, algo, ted_sid);
+		} else {
+			zlog_debug(
+				"%s: [rcv ted] NOT found PREFIX (%s) ALG (%d)!",
+				__func__, buf, algo);
+		}
+		// TYPE-E
+		ted_sid = MPLS_LABEL_NONE;
+		uint32_t iface_id = 1;
+		memset(&prefix, 0, sizeof(prefix));
+		prefix.family = AF_INET;
+		prefix.prefixlen = 4;
+		prefix.u.prefix4.s_addr = hop->nai.local_addr.ip._v4_addr.s_addr
+					  & 0x00ffffff; // test purposes
+		inet_ntop(AF_INET, &prefix.u.prefix4, buf, sizeof(buf));
+		if (MPLS_LABEL_NONE
+		    != (ted_sid = path_ted_query_type_e(&prefix, iface_id))) {
+			zlog_debug(
+				"%s/(%lu): [rcv ted] SUCCESS found PREFIX (%s) IFACE (%d) sid:(%d)!",
+				__func__, pthread_self(), buf, iface_id,
+				ted_sid);
+		} else {
+			zlog_debug(
+				"%s/(%lu): [rcv ted] NOT found PREFIX (%s) IFACE (%d)!",
+				__func__, pthread_self(), buf, iface_id);
+		}
+		// END : query ted
+
 		/* Hops without SID are not supported */
 		if (!hop->has_sid) {
 			snprintfrr(errbuff, buffsize, "SR segment without SID");

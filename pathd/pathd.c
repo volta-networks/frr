@@ -32,7 +32,8 @@
 
 DEFINE_MTYPE_STATIC(PATHD, PATH_SEGMENT_LIST, "Segment List")
 DEFINE_MTYPE_STATIC(PATHD, PATH_SR_POLICY, "SR Policy")
-DEFINE_MTYPE_STATIC(PATHD, PATH_SR_CANDIDATE, "SR Policy candidate path")
+DEFINE_MTYPE_STATIC(PATHD, PATH_SR_CANDIDATE,
+		    "SR Policy candidate path")
 
 DEFINE_HOOK(pathd_candidate_created, (struct srte_candidate * candidate),
 	    (candidate))
@@ -187,11 +188,15 @@ void srte_segment_entry_del(struct srte_segment_entry *segment)
  * @param type The remote address of the adjacency
  * @param type The remote interface index of the unumbered adjacency
  */
+#include "path_ted.h"
 void srte_segment_entry_set_nai(struct srte_segment_entry *segment,
 				enum srte_segment_nai_type type,
 				struct ipaddr *local_ip, uint32_t local_iface,
-				struct ipaddr *remote_ip, uint32_t remote_iface)
+				struct ipaddr *remote_ip, uint32_t remote_iface,
+				uint8_t algo, uint8_t pref_len)
 {
+	struct prefix pre = {0};
+	uint32_t ted_sid = 0;
 	segment->nai_type = type;
 	memcpy(&segment->nai_local_addr, local_ip, sizeof(struct ipaddr));
 
@@ -203,12 +208,67 @@ void srte_segment_entry_set_nai(struct srte_segment_entry *segment,
 	case SRTE_SEGMENT_NAI_TYPE_IPV6_ADJACENCY:
 		memcpy(&segment->nai_remote_addr, remote_ip,
 		       sizeof(struct ipaddr));
+////		if(segment->segment_list->protocol_origin==SRTE_ORIGIN_LOCAL){
+		if (MPLS_LABEL_NONE
+		    != (ted_sid = path_ted_query_type_f(local_ip, remote_ip))) {
+			zlog_debug(
+				" Segment with adj resolve from sid to ted-sid (%d)-(%d)",
+				segment->sid_value, ted_sid);
+			segment->sid_value = ted_sid;
+		} else {
+			zlog_err(
+				" Segment with adj resolve from sid to not found ted-sid (%d)-(%d)",
+				segment->sid_value, ted_sid);
+		}
+////		}
 		break;
 	case SRTE_SEGMENT_NAI_TYPE_IPV4_UNNUMBERED_ADJACENCY:
 		memcpy(&segment->nai_remote_addr, remote_ip,
 		       sizeof(struct ipaddr));
 		segment->nai_local_iface = local_iface;
 		segment->nai_remote_iface = remote_iface;
+		break;
+	case SRTE_SEGMENT_NAI_TYPE_IPV4_ALGORITHM:
+		pre.family = AF_INET;
+		pre.prefixlen = pref_len;
+		pre.u.prefix4 = local_ip->ip._v4_addr;
+		////if(segment->segment_list->protocol_origin==SRTE_ORIGIN_LOCAL){
+		if (MPLS_LABEL_NONE
+		    != (ted_sid = path_ted_query_type_c(&pre, algo))) {
+			zlog_debug(
+				" Segment with alg resolve from sid to ted-sid (%d)-(%d) prefix (%pI4)/(%d) algorith(%d)",
+				segment->sid_value, ted_sid,
+				&local_ip->ip._v4_addr, pref_len, algo);
+			segment->sid_value = ted_sid;
+		} else {
+			zlog_err(
+				"Segment with alg resolve from sid to not found ted-sid (%d)-(%d)",
+				segment->sid_value, ted_sid);
+		}
+		////}
+		segment->nai_local_prefix_len = pref_len;
+		segment->nai_algorithm = algo;
+		break;
+	case SRTE_SEGMENT_NAI_TYPE_IPV4_LOCAL_IFACE:
+		pre.family = AF_INET;
+		pre.prefixlen = pref_len;
+		pre.u.prefix4 = local_ip->ip._v4_addr;
+		////if(segment->segment_list->protocol_origin==SRTE_ORIGIN_LOCAL){
+		if (MPLS_LABEL_NONE
+		    != (ted_sid = path_ted_query_type_e(&pre, local_iface))) {
+			zlog_debug(
+				"Segment with local iface resolve from sid to ted-sid (%d)-(%d) prefix (%pI4)/(%d) local_iface(%d)",
+				segment->sid_value, ted_sid,
+				&local_ip->ip._v4_addr, pref_len, local_iface);
+			segment->sid_value = ted_sid;
+		} else {
+			zlog_err(
+				"Segment with local iface resolve from sid to not found ted-sid (%d)-(%d)",
+				segment->sid_value, ted_sid);
+		}
+		////}
+		segment->nai_local_prefix_len = pref_len;
+		segment->nai_local_iface = local_iface;
 		break;
 	default:
 		segment->nai_local_addr.ipa_type = IPADDR_NONE;
@@ -284,6 +344,175 @@ struct srte_policy *srte_policy_find(uint32_t color, struct ipaddr *endpoint)
 	search.color = color;
 	search.endpoint = *endpoint;
 	return RB_FIND(srte_policy_head, &srte_policies, &search);
+}
+
+int srte_policy_update_ted_sid(struct vty *vty)
+{
+
+	struct srte_segment_list *s_list;
+	struct srte_segment_entry *s_entry;
+
+	if (RB_EMPTY(srte_segment_list_head, &srte_segment_lists)) {
+		vty_out(vty, "No SR Segment lists to display.\n\n");
+		return CMD_SUCCESS;
+	}
+
+	vty_out(vty, "\n");
+	// A. SEGMENT ENTRIES QUERY TED
+	// B. ADD TO LIST OF MODIFICATIONS
+	struct list *modified_sl;
+	struct listnode *lst_node;
+	struct modified_sl_node {
+		struct srte_segment_list *sl;
+	};
+	struct modified_sl_node *modified_sl_node_ptr;
+	modified_sl = list_new();
+	RB_FOREACH (s_list, srte_segment_list_head, &srte_segment_lists) {
+		struct srte_candidate *candidate;
+		char *segment_list_info;
+
+
+		RB_FOREACH (s_entry, srte_segment_entry_head,
+			    &s_list->segments) {
+			////if(s_list->protocol_origin != SRTE_ORIGIN_LOCAL)
+			////	// Only for explicit segment list
+			////	continue;
+			vty_out(vty,
+				"SL: Name: %s index:(%d) sid:(%d) prefix_len:(%d) algorithm:(%d) \n",
+				s_list->name, s_entry->index,
+				s_entry->sid_value,
+				s_entry->nai_local_prefix_len,
+				s_entry->nai_algorithm);
+			uint32_t ted_sid = MPLS_LABEL_NONE;
+			struct prefix prefix_cli = {0};
+			switch (s_entry->nai_type) {
+			case SRTE_SEGMENT_NAI_TYPE_IPV6_ADJACENCY:
+				break;
+			case SRTE_SEGMENT_NAI_TYPE_IPV4_ADJACENCY:
+				// IS THE ted_sid BEEN ASIGNED TO SEGMENT LIST
+				// ???????
+				if (MPLS_LABEL_NONE
+				    == (ted_sid = path_ted_query_type_f(
+						&s_entry->nai_local_addr,
+						&s_entry->nai_remote_addr))) {
+					vty_out(vty,
+						" ERROR query F : ted-sid (%d)\n",
+						ted_sid);
+				} else {
+					vty_out(vty,
+						" query F : ted-sid (%d)\n",
+						ted_sid);
+					// modified_sl_node_ptr =
+					// XCALLOC(MTYPE_PATH_SEGMENT_LIST,
+					// sizeof(struct modified_sl_node));
+					// modified_sl_node_ptr->sl=s_list;
+					// listnode_add(modified_sl,
+					// modified_sl_node_ptr);
+					vty_out(vty,
+						" Adding to modified_sl %s-%d\n",
+						s_list->name, s_entry->index);
+					listnode_add(modified_sl, s_list);
+					SET_FLAG(s_list->flags,
+						 F_SEGMENT_LIST_MODIFIED);
+				}
+				break;
+			case SRTE_SEGMENT_NAI_TYPE_IPV6_LOCAL_IFACE:
+				break;
+			case SRTE_SEGMENT_NAI_TYPE_IPV4_LOCAL_IFACE:
+				prefix_cli.family = AF_INET;
+				prefix_cli.prefixlen =
+					s_entry->nai_local_prefix_len;
+				prefix_cli.u.prefix4 =
+					s_entry->nai_local_addr.ip._v4_addr;
+				if (MPLS_LABEL_NONE
+				    == (ted_sid = path_ted_query_type_e(
+						&prefix_cli,
+						s_entry->nai_local_iface))) {
+					vty_out(vty,
+						" ERROR query E : ted-sid (%d)\n",
+						ted_sid);
+				} else {
+					vty_out(vty,
+						" query E : ted-sid (%d)\n",
+						ted_sid);
+				}
+				break;
+			case SRTE_SEGMENT_NAI_TYPE_IPV6_ALGORITHM:
+				break;
+			case SRTE_SEGMENT_NAI_TYPE_IPV4_ALGORITHM:
+				prefix_cli.family = AF_INET;
+				prefix_cli.prefixlen =
+					s_entry->nai_local_prefix_len;
+				prefix_cli.u.prefix4 =
+					s_entry->nai_local_addr.ip._v4_addr;
+				if (MPLS_LABEL_NONE
+				    == (ted_sid = path_ted_query_type_c(
+						&prefix_cli,
+						s_entry->nai_algorithm))) {
+					vty_out(vty,
+						" ERROR query C : ted-sid (%d)\n",
+						ted_sid);
+				} else {
+					vty_out(vty,
+						" query C : ted-sid (%d)\n",
+						ted_sid);
+				}
+				break;
+			default:
+				break;
+			}
+		}
+	}
+	srte_apply_changes();
+	return CMD_SUCCESS;
+	// POLICIES RESEND TO ZEBRA BASED IN MODIFICATION LIST
+	///////////////for (ALL_LIST_ELEMENTS_RO(modified_sl, lst_node,
+	///modified_sl_node_ptr)){
+	// RB POL
+	// frr_each(node, type, data_struct)
+	struct srte_policy *pol;
+	struct srte_candidate *can;
+	struct srte_segment_entry *ent;
+	vty_out(vty, "\n");
+	RB_FOREACH (pol, srte_policy_head, &srte_policies) {
+		// RB CAND
+		RB_FOREACH (can, srte_candidate_head, &pol->candidate_paths) {
+			// RB SEGMENTS
+			if (can->segment_list
+			    && can->type == SRTE_CANDIDATE_TYPE_EXPLICIT) {
+				// Look for segment_list in modified_sl
+				// struct listnode *listnode_lookup(struct list
+				// *list, const void *data)
+				if ((lst_node = listnode_lookup(
+					     modified_sl, can->segment_list))
+				    && (lst_node->data == can->segment_list)) {
+					vty_out(vty,
+						" Match sl :(%p) Must update Zebra %s-%s-%s \n ",
+						can->segment_list, pol->name,
+						can->name,
+						can->segment_list->name);
+					// PARECE QUE LO COMUNICAA ZEBRA ¡PERO
+					// NO ESTA FINO!
+					SET_FLAG(can->segment_list->flags,
+						 F_SEGMENT_LIST_MODIFIED);
+					srte_apply_changes();
+				}
+				// RB_FOREACH(ent, srte_segment_entry_head,
+				// &can->segment_list->segments) { 	vty_out(vty,"
+				//Segments candidate:(%s) sl:(%s) index (%d)\n
+				//", can->name, can->segment_list->name,
+				//ent->index);
+				//}
+			}
+		}
+	}
+	// MATCH listnode_lookup
+	// OPAQUE RESEND TO ZEBRA
+	///////////////}
+
+	vty_out(vty, "\n");
+
+	return CMD_SUCCESS;
 }
 
 /**
@@ -1024,6 +1253,12 @@ const char *srte_origin2str(enum srte_protocol_origin origin)
 	default:
 		return "Unknown";
 	}
+}
+
+void pathd_shutdown()
+{
+	path_ted_teardown();
+	path_zebra_destroy();
 }
 
 void trigger_pathd_candidate_created(struct srte_candidate *candidate)

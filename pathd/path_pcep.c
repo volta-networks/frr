@@ -260,6 +260,9 @@ int pcep_main_event_remove_candidate_segments(const char *originator,
 
 int pathd_candidate_created_handler(struct srte_candidate *candidate)
 {
+	if (candidate->type == SRTE_CANDIDATE_TYPE_EXPLICIT) {
+		/* resolve sid and update srte structures */
+	}
 	struct path *path = candidate_to_path(candidate);
 	int ret = pcep_ctrl_pathd_event(pcep_g->fpt, PCEP_PATH_CREATED, path);
 	return ret;

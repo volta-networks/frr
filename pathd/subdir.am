@@ -6,7 +6,10 @@ if PATHD
 noinst_LIBRARIES += pathd/libpath.a
 sbin_PROGRAMS += pathd/pathd
 dist_examples_DATA += pathd/pathd.conf.sample
-vtysh_scan += $(top_srcdir)/pathd/path_cli.c
+vtysh_scan += \
+	pathd/path_cli.c \
+	pathd/path_ted.c \
+	# end
 vtysh_daemons += pathd
 # TODO add man page
 #man8 += $(MANBUILD)/pathd.8
@@ -27,6 +30,7 @@ pathd_libpath_a_SOURCES = \
 	pathd/path_nb.c \
 	pathd/path_nb_config.c \
 	pathd/path_nb_state.c \
+	pathd/path_ted.c \
 	pathd/path_zebra.c \
 	pathd/pathd.c \
 	# end
@@ -34,6 +38,7 @@ pathd_libpath_a_SOURCES = \
 clippy_scan += \
 	pathd/path_cli.c \
 	pathd/path_pcep_cli.c \
+	pathd/path_ted.c \
 	# end
 
 noinst_HEADERS += \
@@ -49,6 +54,7 @@ noinst_HEADERS += \
 	pathd/path_pcep_memory.h \
 	pathd/path_pcep_config.h \
 	pathd/path_pcep_pcc.h \
+	pathd/path_ted.h \
 	pathd/path_zebra.h \
 	pathd/pathd.h \
 	# end
